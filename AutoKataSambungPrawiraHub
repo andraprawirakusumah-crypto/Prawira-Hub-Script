@@ -1,10 +1,13 @@
 -- =================================================================
--- Script  : SAMBUNG KATA AUTO PLAY v47.00
+-- Script  : SAMBUNG KATA AUTO PLAY v47.0 (MOBILE KEYBOARD FIX)
 -- Author  : PrawiraXLIV
--- Fix v47 : - HP FIX: FindKeyboardButton hanya baca Name/Text button langsung
---           - HP FIX: Enter mobile klik tombol "Enter" di Row4 keyboard game
---           - PC tetap VIM per karakter (tidak diubah)
+-- Fix v47 : - HP FIX: Cache tombol keyboard game, klik via AbsolutePosition
+--           - HP FIX: Lookup button by .Name (bukan .Text) → lebih reliable
+--           - HP FIX: Enter otomatis diklik setelah selesai ngetik
+--           - HP FIX: Invalidate cache kalau button hilang (EndTurn/respawn)
+--           - PC: VIM per karakter (tidak diubah)
 -- =================================================================
+
 local Players           = game:GetService("Players")
 local CoreGui           = game:GetService("CoreGui")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -14,39 +17,47 @@ local UserInputService  = game:GetService("UserInputService")
 local TweenService      = game:GetService("TweenService")
 local VirtualUser       = game:GetService("VirtualUser")
 local LocalPlayer       = Players.LocalPlayer
+
 local guiParent = (gethui and gethui()) or CoreGui
 if guiParent:FindFirstChild("SambungKataGUI") then guiParent.SambungKataGUI:Destroy() end
 if guiParent:FindFirstChild("PrawiraAntiAfk") then guiParent.PrawiraAntiAfk:Destroy() end
+
 local scriptConnections = {}
+
 -- ============================================================
 -- DETEKSI PLATFORM
 -- ============================================================
 local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+
 -- ============================================================
 -- DATABASE
 -- ============================================================
 local URLS = {
     "https://raw.githubusercontent.com/Bhuzel/RobloxScript/refs/heads/main/DatabaseBhuzel-KBBI-Indo.txt"
 }
-local KamusDict = {} 
-local WordCache = {} 
-local LocalDB = {} 
-local BlacklistDB = {} 
-local UsedWords = {} 
+
+local KamusDict = {}
+local WordCache = {}
+local LocalDB = {}
+local BlacklistDB = {}
+local UsedWords = {}
 local scriptActive = true
 local autoTypeEnabled = false
 local mainThread = nil
 local dbLoaded = false
 local isTyping = false
-local totalDuplicates = 0 
+local totalDuplicates = 0
+
 local DB_FILENAME        = "SambungKata_LocalDB.json"
 local BLACKLIST_FILENAME = "SambungKata_Blacklist.json"
-local currentPlayerTurn  = nil 
-local lastValidSpiedWord = "" 
+
+local currentPlayerTurn  = nil
+local lastValidSpiedWord = ""
 local currentTurnDelay   = 0.7
-local turnDelayEnd       = 0 
+local turnDelayEnd       = 0
+
 local function RegisterWord(w)
-    if not w or #w < 3 then return false end 
+    if not w or #w < 3 then return false end
     local wl = string.lower(w)
     if BlacklistDB[wl] then return false end
     if not KamusDict[wl] then
@@ -60,23 +71,28 @@ local function RegisterWord(w)
     end
     return false
 end
+
 -- ============================================================
 -- AUTO-SAVE & AUTO-LOAD
 -- ============================================================
 local LblDBStat, LblInfo, LblStatus, LblTyping, LblJoin, LblPre, LblGiliran, LblSpy
-local TriggerListRefresh 
+local TriggerListRefresh
+
 local function CountTable(tbl) local c = 0 for _ in pairs(tbl) do c = c + 1 end return c end
+
 local function UpdateDBStatUI()
     if LblDBStat then
         LblDBStat.Text = "DB: "..CountTable(LocalDB).." | Dup: "..totalDuplicates.." | Use: "..CountTable(UsedWords).." | Blk: "..CountTable(BlacklistDB)
     end
 end
+
 local function SaveDatabases()
-    if writefile then 
+    if writefile then
         pcall(function() writefile(DB_FILENAME, HttpService:JSONEncode(LocalDB)) end)
         pcall(function() writefile(BLACKLIST_FILENAME, HttpService:JSONEncode(BlacklistDB)) end)
     end
 end
+
 local function LoadDatabases()
     if readfile and isfile then
         if isfile(DB_FILENAME) then
@@ -91,17 +107,19 @@ local function LoadDatabases()
     end
 end
 LoadDatabases()
+
 -- ============================================================
 -- CONFIG & FILTER
 -- ============================================================
 local TypingSpeed   = 0.05
-local MIN_SPEED     = 0.01 
-local MAX_SPEED     = 1.00 
+local MIN_SPEED     = 0.01
+local MAX_SPEED     = 1.00
 local DeleteSpeed   = 0.05
-local MIN_DEL_SPEED = 0.01 
-local MAX_DEL_SPEED = 1.00 
+local MIN_DEL_SPEED = 0.01
+local MAX_DEL_SPEED = 1.00
 local MIN_TURN_DELAY = 0.1
 local MAX_TURN_DELAY = 2.0
+
 local filterModes = {
     "⭕ Tanpa Filter (None)", "⚙️ Rotasi: KIAMAT (W,X,Z,V,F,Q,UZ)", "⚙️ Rotasi: 9 JEBAKAN MAUT",
     "⚙️ Rotasi: SME-IF-AH-EX", "⚙️ Rotasi: EH-IA-MEO-AEK", "⚙️ Rotasi: SME-IF-AH",
@@ -111,12 +129,16 @@ local filterModes = {
     "🩺 Filter: Medis/Kedokteran", "🇮🇩 Filter: Nasional/Indo"
 }
 local currentFilterIndex = 1
+
 local sortModes = {"= Normal =", "↑ Terpanjang", "↓ Terpendek", "⤨ Acak"}
 local currentSortIndex = 1
+
 local medicalKeywords = {"fobia","ologi","itis","oma","osis","sindrom","terapi","medis","obat","virus","bakteri","sakit","nyeri","luka","kanker","tumor","darah","jantung","paru","hati","ginjal","otak","saraf","gigi","tulang","kulit","mata","telinga","hidung","klinik","dokter","perawat","bidan","apotek","resep","dosis","injeksi","vaksin","infeksi","alergi","imun","gizi","vitamin","protein","diet","hamil","janin","lahir","bayi","bedah","bius","pingsan","koma","kritis","pulih","sembuh","sehat","bugar","pusing","mual","muntah","diare","demam","panas","batuk","pilek","flu","sesak","asma","hipertensi","anemia","diabetes","kolesterol","stroke","lumpuh","kista","polip","amandel","ambeien","wasir","maag","lambung","usus","hepatitis","katarak","glaukoma","buta","tuli","bisu","eksim","jerawat","psikolog","biologi","mental","stres","depresi","cemas","trauma","autis","genetik","sel","dna","kapsul","pil","sirup","kuman","toksin","racun","antibiotik","anatomi","fisiologi","patologi","diagnos","gejala"}
 local nationalKeywords = {"indonesia","nusantara","bhinneka","tunggal","ika","pancasila","merdeka","republik","bangsa","negara","garuda","merah","putih","bendera","pusaka","pertiwi","proklamasi","pahlawan","patriot","sumpah","pemuda","gotong","royong","musyawarah","mufakat","toleransi","adat","suku","budaya","jawa","sumatra","kalimantan","sulawesi","papua","bali","maluku","sabang","merauke","tni","polri","polisi","tentara","rupiah","monas","presiden","menteri","gubernur","bupati","walikota","rakyat","adil","makmur","sentosa","jaya","abadi","ketuhanan","kemanusiaan","persatuan","kerakyatan","keadilan","sosial","adab","hikmat","reformasi","demokrasi","konstitusi","uud","nkri","soekarno","hatta","sudirman","kartini"}
+
 local function isMedicalWord(w) for _,kw in ipairs(medicalKeywords) do if string.find(w,kw) then return true end end return false end
 local function isNationalWord(w) for _,kw in ipairs(nationalKeywords) do if string.find(w,kw) then return true end end return false end
+
 local function UpdateInfoUI()
     if LblInfo then
         local modeStr = autoTypeEnabled and "AUTO" or "MANUAL"
@@ -124,6 +146,7 @@ local function UpdateInfoUI()
         LblInfo.Text = platStr.." "..modeStr.." | "..filterModes[currentFilterIndex]
     end
 end
+
 THEME = {
     MainBackground = Color3.fromRGB(20,20,25),   Transparency  = 0.05,
     StrokeColor    = Color3.fromRGB(60,60,70),   TitleColor    = Color3.fromRGB(0,255,170),
@@ -137,8 +160,10 @@ THEME = {
     Red            = Color3.fromRGB(255,70,70),   Pink          = Color3.fromRGB(255,100,180),
     Nasional       = Color3.fromRGB(255,80,80),   Kiamat        = Color3.fromRGB(255,0,50)
 }
+
 local tweenBounce = TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local tweenFast   = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+
 local function AddStyle(instance, cornerRadius)
     local corner = Instance.new("UICorner", instance)
     corner.CornerRadius = UDim.new(0, cornerRadius)
@@ -147,6 +172,7 @@ local function AddStyle(instance, cornerRadius)
     stroke.Thickness = 2
     stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 end
+
 local function ApplyHover(btn, baseColor, isTransparent)
     local tInfo = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
     if isTransparent then
@@ -163,6 +189,7 @@ local function ApplyHover(btn, baseColor, isTransparent)
         end)
     end
 end
+
 -- ============================================================
 -- MAIN GUI
 -- ============================================================
@@ -170,6 +197,7 @@ local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "SambungKataGUI"
 ScreenGui.Parent = guiParent
 ScreenGui.ResetOnSpawn = false
+
 local ResponsiveScale = Instance.new("UIScale", ScreenGui)
 local camera = workspace.CurrentCamera
 local BASE_RES = Vector2.new(1366, 768)
@@ -181,6 +209,7 @@ local function UpdateScale()
 end
 table.insert(scriptConnections, camera:GetPropertyChangedSignal("ViewportSize"):Connect(UpdateScale))
 UpdateScale()
+
 local Frame = Instance.new("Frame", ScreenGui)
 Frame.Name = "MainFrame"
 Frame.Size = UDim2.new(0, 340, 0, 710)
@@ -191,12 +220,15 @@ Frame.BackgroundTransparency = THEME.Transparency
 Frame.BorderSizePixel = 0
 Frame.Visible = true
 AddStyle(Frame, 12)
+
 local MainScale = Instance.new("UIScale", Frame)
 MainScale.Scale = 1
+
 local HeaderFrame = Instance.new("Frame", Frame)
 HeaderFrame.Size = UDim2.new(1, -30, 0, 30)
 HeaderFrame.Position = UDim2.new(0, 15, 0, 15)
 HeaderFrame.BackgroundTransparency = 1
+
 local CloseBtn = Instance.new("TextButton", HeaderFrame)
 CloseBtn.Size = UDim2.new(0, 30, 0, 30)
 CloseBtn.AnchorPoint = Vector2.new(1, 0)
@@ -208,6 +240,7 @@ CloseBtn.TextSize = 14
 CloseBtn.TextColor3 = THEME.TextColor
 AddStyle(CloseBtn, 8)
 ApplyHover(CloseBtn, THEME.BtnStop, false)
+
 local MinBtn = Instance.new("TextButton", HeaderFrame)
 MinBtn.Size = UDim2.new(0, 30, 0, 30)
 MinBtn.AnchorPoint = Vector2.new(1, 0)
@@ -219,6 +252,7 @@ MinBtn.TextSize = 18
 MinBtn.TextColor3 = THEME.TextColor
 AddStyle(MinBtn, 8)
 ApplyHover(MinBtn, Color3.fromRGB(80, 80, 90), false)
+
 local Title = Instance.new("TextLabel", HeaderFrame)
 Title.Size = UDim2.new(1, -80, 1, 0)
 Title.BackgroundTransparency = 1
@@ -227,6 +261,7 @@ Title.TextColor3 = THEME.TitleColor
 Title.Font = THEME.Font
 Title.TextSize = 14
 Title.TextXAlignment = Enum.TextXAlignment.Left
+
 local function makeLabel(posY, defaultText, color, size, align)
     local l = Instance.new("TextLabel")
     l.Size = UDim2.new(1, -30, 0, 20)
@@ -241,6 +276,7 @@ local function makeLabel(posY, defaultText, color, size, align)
     l.Parent = Frame
     return l
 end
+
 LblJoin    = makeLabel(50,  "● Belum join meja", THEME.Red, 12)
 LblPre     = makeLabel(70,  "HURUF AWAL: -", THEME.Yellow, 13)
 LblTyping  = makeLabel(90,  "TARGET: -", THEME.Cyan, 12)
@@ -248,6 +284,7 @@ LblStatus  = makeLabel(110, "Status: Booting...", THEME.Yellow, 11)
 LblDBStat  = makeLabel(130, "DB: 0 | Dup: 0 | Use: 0 | Blk: 0", Color3.fromRGB(150,255,150), 10)
 LblGiliran = makeLabel(150, "Giliran: -", Color3.fromRGB(200,150,255), 11)
 LblSpy     = makeLabel(170, "Ngetik: -", Color3.fromRGB(255,100,100), 11)
+
 local Line = Instance.new("Frame")
 Line.Size = UDim2.new(1, -30, 0, 1)
 Line.Position = UDim2.new(0, 15, 0, 195)
@@ -255,6 +292,7 @@ Line.BackgroundColor3 = THEME.Neon
 Line.BackgroundTransparency = 0.5
 Line.BorderSizePixel = 0
 Line.Parent = Frame
+
 local SearchBox = Instance.new("TextBox")
 SearchBox.Size = UDim2.new(1, -30, 0, 25)
 SearchBox.Position = UDim2.new(0, 15, 0, 205)
@@ -267,6 +305,7 @@ SearchBox.Text = ""
 SearchBox.ClearTextOnFocus = false
 SearchBox.Parent = Frame
 AddStyle(SearchBox, 6)
+
 local Scroll = Instance.new("ScrollingFrame")
 Scroll.Size = UDim2.new(1, -30, 1, -535)
 Scroll.Position = UDim2.new(0, 15, 0, 235)
@@ -278,13 +317,16 @@ Scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 Scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
 AddStyle(Scroll, 6)
 Scroll.Parent = Frame
+
 local ScrollLayout = Instance.new("UIListLayout", Scroll)
 ScrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
 ScrollLayout.Padding = UDim.new(0, 2)
+
 local ScrollPad = Instance.new("UIPadding", Scroll)
 ScrollPad.PaddingLeft = UDim.new(0, 5)
 ScrollPad.PaddingTop = UDim.new(0, 5)
 ScrollPad.PaddingBottom = UDim.new(0, 5)
+
 local function setScrollPlaceholder(text, color)
     for _, child in ipairs(Scroll:GetChildren()) do
         if child:IsA("TextLabel") or child:IsA("TextButton") then child:Destroy() end
@@ -301,6 +343,7 @@ local function setScrollPlaceholder(text, color)
     lbl.Parent = Scroll
 end
 setScrollPlaceholder("Menunggu database...", THEME.Neon)
+
 -- ============================================================
 -- BOTTOM LAYOUT
 -- ============================================================
@@ -316,14 +359,17 @@ ImportBox.Text = ""
 ImportBox.ClearTextOnFocus = false
 ImportBox.Parent = Frame
 AddStyle(ImportBox, 6)
+
 local BtnFrame = Instance.new("Frame", Frame)
 BtnFrame.Size = UDim2.new(1, -30, 0, 25)
 BtnFrame.Position = UDim2.new(0, 15, 1, -250)
 BtnFrame.BackgroundTransparency = 1
+
 local BtnLayout = Instance.new("UIListLayout", BtnFrame)
 BtnLayout.FillDirection = Enum.FillDirection.Horizontal
 BtnLayout.SortOrder = Enum.SortOrder.LayoutOrder
 BtnLayout.Padding = UDim.new(0, 6)
+
 local function makeSmallBtn(w, text, bg, order)
     local b = Instance.new("TextButton", BtnFrame)
     b.Size = UDim2.new(0, w, 1, 0)
@@ -337,11 +383,13 @@ local function makeSmallBtn(w, text, bg, order)
     ApplyHover(b, bg, false)
     return b
 end
+
 local BtnExp  = makeSmallBtn(57, "Exp DB",  THEME.BtnExport, 1)
 local BtnImp  = makeSmallBtn(57, "Imp DB",  THEME.BtnImport, 2)
 local BtnExpB = makeSmallBtn(57, "Exp Blk", THEME.BtnExport, 3)
 local BtnImpB = makeSmallBtn(57, "Imp Blk", THEME.BtnImport, 4)
 local BtnDel  = makeSmallBtn(57, "Clr ALL", THEME.BtnDelete, 5)
+
 -- ============================================================
 -- SLIDER HELPER
 -- ============================================================
@@ -350,6 +398,7 @@ local function makeSlider(posYFromBottom, labelText, initVal, minVal, maxVal, fi
     container.Size = UDim2.new(1, -30, 0, 25)
     container.Position = UDim2.new(0, 15, 1, posYFromBottom)
     container.BackgroundTransparency = 1
+
     local label = Instance.new("TextLabel", container)
     label.Size = UDim2.new(0, 95, 1, 0)
     label.BackgroundTransparency = 1
@@ -358,81 +407,95 @@ local function makeSlider(posYFromBottom, labelText, initVal, minVal, maxVal, fi
     label.Font = Enum.Font.GothamSemibold
     label.TextSize = 10
     label.TextXAlignment = Enum.TextXAlignment.Left
+
     local line = Instance.new("Frame", container)
     line.Size = UDim2.new(1, -95, 0, 6)
     line.Position = UDim2.new(0, 95, 0.5, -3)
     line.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
     line.ZIndex = 5
     Instance.new("UICorner", line).CornerRadius = UDim.new(1, 0)
+
     local pct0 = (initVal - minVal) / (maxVal - minVal)
+
     local fill = Instance.new("Frame", line)
     fill.Size = UDim2.new(pct0, 0, 1, 0)
     fill.BackgroundColor3 = fillColor
     fill.ZIndex = 6
     Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
+
     local knob = Instance.new("Frame", line)
     knob.Size = UDim2.new(0, 16, 0, 16)
     knob.Position = UDim2.new(pct0, -8, 0.5, -8)
     knob.BackgroundColor3 = THEME.TextWhite
     knob.ZIndex = 7
     Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+
     local hitbox = Instance.new("TextButton", container)
     hitbox.Size = UDim2.new(1, -95, 1, 0)
     hitbox.Position = UDim2.new(0, 95, 0, 0)
     hitbox.BackgroundTransparency = 1
     hitbox.Text = ""
     hitbox.ZIndex = 10
+
     local dragging = false
+    local currentVal = initVal
+
     local function updateVisual(inputX)
         local relX = inputX - line.AbsolutePosition.X
         local pct = math.clamp(relX / line.AbsoluteSize.X, 0, 1)
         fill.Size = UDim2.new(pct, 0, 1, 0)
         knob.Position = UDim2.new(pct, -8, 0.5, -8)
-        local currentVal = minVal + (pct * (maxVal - minVal))
+        currentVal = minVal + (pct * (maxVal - minVal))
         onChanged(currentVal, label)
     end
+
     hitbox.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true; updateVisual(input.Position.X)
         end
     end)
+
     table.insert(scriptConnections, UserInputService.InputChanged:Connect(function(input)
         if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
             updateVisual(input.Position.X)
         end
     end))
+
     UserInputService.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = false
         end
     end)
+
     return dragging, container
 end
--- SLIDER 1: TURN DELAY
+
 local TurnDelayDragging, TurnDelayContainer = makeSlider(-215, "Delay: 0.7s", currentTurnDelay, MIN_TURN_DELAY, MAX_TURN_DELAY, THEME.Neon,
     function(val, lbl)
         currentTurnDelay = val
         lbl.Text = "Delay: "..string.format("%.1f", val).."s"
     end
 )
--- SLIDER 2: KETIK
+
 local SliderDragging, SliderContainer = makeSlider(-185, "Ketik: 0.05s", TypingSpeed, MIN_SPEED, MAX_SPEED, THEME.TitleColor,
     function(val, lbl)
         TypingSpeed = val
         lbl.Text = "Ketik: "..string.format("%.2f", val).."s"
     end
 )
--- SLIDER 3: HAPUS
+
 local DelSliderDragging, DelSliderContainer = makeSlider(-150, "Hapus: 0.05s", DeleteSpeed, MIN_DEL_SPEED, MAX_DEL_SPEED, THEME.Red,
     function(val, lbl)
         DeleteSpeed = val
         lbl.Text = "Hapus: "..string.format("%.2f", val).."s"
     end
 )
+
 -- ============================================================
 -- DROPDOWN
 -- ============================================================
 local dropdowns = {}
+
 local function CreateDropdown(w, xPos, items, defaultIdx, onSelectCallback)
     local container = Instance.new("Frame", Frame)
     container.Size = UDim2.new(0, w, 0, 25)
@@ -440,6 +503,7 @@ local function CreateDropdown(w, xPos, items, defaultIdx, onSelectCallback)
     container.BackgroundColor3 = Color3.fromRGB(40, 30, 60)
     container.ZIndex = 10
     AddStyle(container, 6)
+
     local display = Instance.new("TextLabel", container)
     display.Size = UDim2.new(1, -25, 1, 0)
     display.Position = UDim2.new(0, 8, 0, 0)
@@ -450,6 +514,7 @@ local function CreateDropdown(w, xPos, items, defaultIdx, onSelectCallback)
     display.TextSize = 10
     display.TextXAlignment = Enum.TextXAlignment.Left
     display.ZIndex = 11
+
     local arrow = Instance.new("TextLabel", container)
     arrow.Size = UDim2.new(0, 25, 1, 0)
     arrow.Position = UDim2.new(1, -25, 0, 0)
@@ -459,11 +524,13 @@ local function CreateDropdown(w, xPos, items, defaultIdx, onSelectCallback)
     arrow.Font = THEME.Font
     arrow.TextSize = 12
     arrow.ZIndex = 11
+
     local btn = Instance.new("TextButton", container)
     btn.Size = UDim2.new(1, 0, 1, 0)
     btn.BackgroundTransparency = 1
     btn.Text = ""
     btn.ZIndex = 12
+
     local scroll = Instance.new("ScrollingFrame", Frame)
     scroll.Size = UDim2.new(0, w, 0, 0)
     scroll.Position = UDim2.new(0, xPos, 1, -120)
@@ -473,11 +540,14 @@ local function CreateDropdown(w, xPos, items, defaultIdx, onSelectCallback)
     scroll.ZIndex = 50
     scroll.Visible = false
     AddStyle(scroll, 6)
+
     local layout = Instance.new("UIListLayout", scroll)
     layout.SortOrder = Enum.SortOrder.LayoutOrder
     layout.Padding = UDim.new(0, 2)
+
     local isOpen = false
     local isAnimating = false
+
     local function Toggle(forceClose)
         if isAnimating then return end
         if forceClose and not isOpen then return end
@@ -502,6 +572,7 @@ local function CreateDropdown(w, xPos, items, defaultIdx, onSelectCallback)
     end
     table.insert(dropdowns, Toggle)
     btn.MouseButton1Click:Connect(function() Toggle() end)
+
     for i, mode in ipairs(items) do
         local opt = Instance.new("TextButton", scroll)
         opt.Size = UDim2.new(1, -10, 0, 25)
@@ -523,14 +594,17 @@ local function CreateDropdown(w, xPos, items, defaultIdx, onSelectCallback)
     scroll.CanvasSize = UDim2.new(0, 0, 0, #items * 27)
     return Toggle
 end
+
 CreateDropdown(185, 15, filterModes, currentFilterIndex, function(idx)
     currentFilterIndex = idx; UpdateInfoUI()
     if TriggerListRefresh then TriggerListRefresh() end
 end)
+
 CreateDropdown(120, 205, sortModes, currentSortIndex, function(idx)
     currentSortIndex = idx; UpdateInfoUI()
     if TriggerListRefresh then TriggerListRefresh() end
 end)
+
 local function makeBtnDown(posY, h, text, bg)
     local b = Instance.new("TextButton")
     b.Size = UDim2.new(1, -30, 0, h)
@@ -545,8 +619,10 @@ local function makeBtnDown(posY, h, text, bg)
     ApplyHover(b, bg, false)
     return b
 end
+
 local BtnPlay = makeBtnDown(-75, 35, "▶  AUTO PLAY: OFF", THEME.BtnStart)
 BtnPlay.TextSize = 12
+
 LblInfo = Instance.new("TextLabel", Frame)
 LblInfo.Size = UDim2.new(1, -30, 0, 15)
 LblInfo.Position = UDim2.new(0, 15, 1, -30)
@@ -556,17 +632,21 @@ LblInfo.TextColor3 = Color3.fromRGB(120, 120, 120)
 LblInfo.Font = Enum.Font.GothamSemibold
 LblInfo.TextSize = 10
 LblInfo.TextXAlignment = Enum.TextXAlignment.Center
+
 UpdateInfoUI()
+
 -- ============================================================
 -- DRAG
 -- ============================================================
 local draggingFrame, dragStart, startPos
+
 Frame.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         for _, tg in ipairs(dropdowns) do tg(true) end
         draggingFrame = true; dragStart = input.Position; startPos = Frame.Position
     end
 end)
+
 table.insert(scriptConnections, UserInputService.InputChanged:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
         if draggingFrame then
@@ -575,11 +655,13 @@ table.insert(scriptConnections, UserInputService.InputChanged:Connect(function(i
         end
     end
 end))
+
 UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         draggingFrame = false
     end
 end)
+
 -- ============================================================
 -- MINIMIZE CIRCLE
 -- ============================================================
@@ -599,8 +681,10 @@ CircleStroke.Color = THEME.TitleColor
 CircleStroke.Thickness = 3
 CircleStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 ApplyHover(MinCircle, THEME.MainBackground, false)
+
 local MinCircleScale = Instance.new("UIScale", MinCircle)
 MinCircleScale.Scale = 0
+
 local isAnimatingUI = false
 MinBtn.MouseButton1Click:Connect(function()
     if isAnimatingUI then return end
@@ -613,6 +697,7 @@ MinBtn.MouseButton1Click:Connect(function()
         isAnimatingUI = false
     end)
 end)
+
 local draggingCircle, dragStartCircle, startPosCircle
 local hasMovedCircle = false
 MinCircle.InputBegan:Connect(function(input)
@@ -621,6 +706,7 @@ MinCircle.InputBegan:Connect(function(input)
         dragStartCircle = input.Position; startPosCircle = MinCircle.Position
     end
 end)
+
 table.insert(scriptConnections, UserInputService.InputChanged:Connect(function(input)
     if draggingCircle and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
         local delta = (input.Position - dragStartCircle) / ResponsiveScale.Scale
@@ -630,6 +716,7 @@ table.insert(scriptConnections, UserInputService.InputChanged:Connect(function(i
         end
     end
 end))
+
 MinCircle.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         draggingCircle = false
@@ -646,6 +733,7 @@ MinCircle.InputEnded:Connect(function(input)
         end
     end
 end)
+
 -- ============================================================
 -- OVERLAYS
 -- ============================================================
@@ -656,6 +744,7 @@ local function createOverlay(titleText, confirmCallback)
     Overlay.BackgroundColor3 = Color3.new(0, 0, 0)
     Overlay.Visible = false
     Overlay.ZIndex = 100
+
     local Box = Instance.new("Frame", Overlay)
     Box.Size = UDim2.new(0, 260, 0, 120)
     Box.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -663,8 +752,10 @@ local function createOverlay(titleText, confirmCallback)
     Box.BackgroundColor3 = THEME.MainBackground
     Box.ZIndex = 101
     AddStyle(Box, 12)
+
     local Scale = Instance.new("UIScale", Box)
     Scale.Scale = 0
+
     local Text = Instance.new("TextLabel", Box)
     Text.Size = UDim2.new(1, 0, 0, 60)
     Text.BackgroundTransparency = 1
@@ -673,6 +764,7 @@ local function createOverlay(titleText, confirmCallback)
     Text.TextColor3 = THEME.TextColor
     Text.TextSize = 13
     Text.ZIndex = 102
+
     local BtnYes = Instance.new("TextButton", Box)
     BtnYes.Size = UDim2.new(0, 100, 0, 35)
     BtnYes.Position = UDim2.new(0, 20, 1, -50)
@@ -681,6 +773,7 @@ local function createOverlay(titleText, confirmCallback)
     BtnYes.TextColor3 = THEME.TextColor; BtnYes.TextSize = 14
     BtnYes.ZIndex = 102
     AddStyle(BtnYes, 8); ApplyHover(BtnYes, THEME.BtnStop, false)
+
     local BtnNo = Instance.new("TextButton", Box)
     BtnNo.Size = UDim2.new(0, 100, 0, 35)
     BtnNo.Position = UDim2.new(1, -120, 1, -50)
@@ -689,21 +782,25 @@ local function createOverlay(titleText, confirmCallback)
     BtnNo.TextColor3 = THEME.TextColor; BtnNo.TextSize = 14
     BtnNo.ZIndex = 102
     AddStyle(BtnNo, 8); ApplyHover(BtnNo, Color3.fromRGB(100, 100, 100), false)
+
     local function HideOverlay()
         TweenService:Create(Scale, tweenFast, {Scale = 0}):Play()
         local fade = TweenService:Create(Overlay, tweenFast, {BackgroundTransparency = 1})
         fade:Play()
         fade.Completed:Connect(function() Overlay.Visible = false end)
     end
+
     BtnNo.MouseButton1Click:Connect(HideOverlay)
     BtnYes.MouseButton1Click:Connect(function() confirmCallback(); HideOverlay() end)
     return Overlay, Scale
 end
+
 local DelOverlay, DelScale = createOverlay("Are you sure delete ALL DB?", function()
     LocalDB = {}; BlacklistDB = {}
     if delfile then pcall(function() delfile(DB_FILENAME) end); pcall(function() delfile(BLACKLIST_FILENAME) end) end
     SaveDatabases(); UpdateDBStatUI()
 end)
+
 local CloseOverlay, CloseScale = createOverlay("Are you sure you want to close?", function()
     scriptActive = false; autoTypeEnabled = false
     if mainThread then task.cancel(mainThread) end
@@ -711,20 +808,24 @@ local CloseOverlay, CloseScale = createOverlay("Are you sure you want to close?"
     KamusDict, WordCache, UsedWords, BlacklistDB = {}, {}, {}, {}
     ScreenGui:Destroy()
 end)
+
 BtnDel.MouseButton1Click:Connect(function()
     DelOverlay.Visible = true
     TweenService:Create(DelOverlay, TweenInfo.new(0.2), {BackgroundTransparency = 0.5}):Play()
     TweenService:Create(DelScale, tweenBounce, {Scale = 1}):Play()
 end)
+
 CloseBtn.MouseButton1Click:Connect(function()
     CloseOverlay.Visible = true
     TweenService:Create(CloseOverlay, TweenInfo.new(0.2), {BackgroundTransparency = 0.5}):Play()
     TweenService:Create(CloseScale, tweenBounce, {Scale = 1}):Play()
 end)
+
 -- ============================================================
 -- SPY MODULE
 -- ============================================================
 local remotes = ReplicatedStorage:WaitForChild("Remotes", 5)
+
 if remotes and remotes:FindFirstChild("TurnCamera") then
     table.insert(scriptConnections, remotes.TurnCamera.OnClientEvent:Connect(function(plr)
         pcall(function()
@@ -748,6 +849,7 @@ if remotes and remotes:FindFirstChild("TurnCamera") then
         end)
     end))
 end
+
 task.spawn(function()
     while scriptActive do
         task.wait(0.1)
@@ -784,10 +886,12 @@ task.spawn(function()
         end)
     end
 end)
+
 -- ============================================================
 -- SNIFFER
 -- ============================================================
 local wordStatus = "waiting"
+
 if remotes then
     if remotes:FindFirstChild("UsedWordWarn") then
         table.insert(scriptConnections, remotes.UsedWordWarn.OnClientEvent:Connect(function()
@@ -820,6 +924,7 @@ if remotes then
         end))
     end
 end
+
 -- ============================================================
 -- getPrefix
 -- ============================================================
@@ -858,80 +963,133 @@ local function getPrefix()
     end)
     return prefix and string.lower(prefix) or nil
 end
+
 -- ============================================================
--- HP KEYBOARD: KLIK TOMBOL VIA POSISI LAYAR
--- Hanya baca Name & Text button langsung, tanpa cek UIStroke dll
+-- 📱 HP KEYBOARD: CACHE + KLIK VIA AbsolutePosition
+-- Lookup tombol berdasarkan .Name (bukan .Text) karena di game ini
+-- setiap TextButton di Row1-Row4 namanya = huruf kapital (E, I, O, dst)
+-- Backspace dan Enter juga lookup by Name.
+-- TIDAK menggunakan firesignal maupun getconnections.
 -- ============================================================
 
--- Klik tombol berdasarkan posisi absolutnya di layar
-local function ClickButtonByPosition(btn)
-    local pos  = btn.AbsolutePosition
-    local size = btn.AbsoluteSize
-    local cx = pos.X + size.X / 2
-    local cy = pos.Y + size.Y / 2
-    pcall(function()
-        VIM:SendMouseButtonEvent(cx, cy, 0, true,  game, 1)
-        task.wait(0.04)
-        VIM:SendMouseButtonEvent(cx, cy, 0, false, game, 1)
-    end)
+-- Cache tombol keyboard: { ["a"]=btn, ["b"]=btn, ..., ["backspace"]=btn, ["enter"]=btn }
+local _kbButtonCache = nil
+
+local function InvalidateKeyboardCache()
+    _kbButtonCache = nil
 end
 
--- Cari tombol keyboard game hanya berdasarkan Name & Text tombol (tanpa baca UIStroke atau child lain)
-local function FindKeyboardButton(charStr, isBackspace, isEnter)
-    local found = nil
+-- Bangun cache sekali, reuse selanjutnya
+local function GetKeyboardButtons()
+    -- Cek cache masih valid (parent-nya masih ada)
+    if _kbButtonCache then
+        local testBtn = _kbButtonCache["enter"] or _kbButtonCache["a"]
+        if testBtn and testBtn.Parent and testBtn.Parent.Parent then
+            return _kbButtonCache
+        end
+        _kbButtonCache = nil  -- stale, rebuild
+    end
+
+    local result = {}
     pcall(function()
-        local mUI = LocalPlayer.PlayerGui:FindFirstChild("MatchUI")
+        -- Path: PlayerGui → MatchUI → BottomUI → Keyboard
+        local pg   = LocalPlayer:FindFirstChild("PlayerGui")
+        if not pg then return end
+        local mUI  = pg:FindFirstChild("MatchUI")
         if not mUI then return end
-        local kb = mUI:FindFirstChild("Keyboard", true)
+        local bUI  = mUI:FindFirstChild("BottomUI")
+        if not bUI then return end
+        local kb   = bUI:FindFirstChild("Keyboard")
         if not kb then return end
 
-        for _, btn in ipairs(kb:GetDescendants()) do
-            -- Hanya proses TextButton atau ImageButton langsung, skip non-button
-            if not (btn:IsA("TextButton") or btn:IsA("ImageButton")) then continue end
+        -- Iterasi Row1, Row2, Row3, Row4
+        for _, row in ipairs(kb:GetChildren()) do
+            if row:IsA("Frame") and row.Name:match("^Row%d") then
+                for _, btn in ipairs(row:GetChildren()) do
+                    if btn:IsA("TextButton") then
+                        local nm = btn.Name  -- contoh: "A", "B", "Backspace", "Enter"
+                        local nmLower = nm:lower()
 
-            local btnName = string.lower(btn.Name)
-
-            if isBackspace then
-                -- Tombol Backspace: cari by Name saja (Name == "Backspace")
-                if btnName == "backspace" then
-                    found = btn
-                    return
-                end
-
-            elseif isEnter then
-                -- Tombol Enter: cari by Name saja (Name == "Enter")
-                if btnName == "enter" then
-                    found = btn
-                    return
-                end
-
-            else
-                -- Tombol huruf: Name = huruf tunggal (misal "A","B",...), atau Text = huruf
-                local c = string.lower(charStr or "")
-                if btnName == c then
-                    found = btn
-                    return
-                end
-                -- Fallback: cek Text jika TextButton
-                if btn:IsA("TextButton") then
-                    local btnText = string.lower(btn.Text)
-                    if btnText == c then
-                        found = btn
-                        return
+                        if nmLower == "backspace" then
+                            result["backspace"] = btn
+                        elseif nmLower == "enter" then
+                            result["enter"] = btn
+                        elseif #nmLower == 1 and nmLower:match("^%a$") then
+                            result[nmLower] = btn
+                        else
+                            -- Fallback: cek .Text juga
+                            local tx = btn.Text:lower():gsub("%s+","")
+                            if #tx == 1 and tx:match("^%a$") then
+                                result[tx] = btn
+                            elseif tx == "backspace" or tx == "⌫" or tx == "del" then
+                                result["backspace"] = result["backspace"] or btn
+                            elseif tx == "enter" or tx == "return" or tx == "ent" then
+                                result["enter"] = result["enter"] or btn
+                            end
+                        end
                     end
                 end
             end
         end
     end)
-    return found
+
+    if next(result) then
+        _kbButtonCache = result
+    end
+    return result
 end
 
--- Mobile: klik tombol keyboard game di posisi layar
+-- Klik satu tombol lewat koordinat layar (AbsolutePosition)
+-- Pakai SendMouseButtonEvent, tanpa firesignal / getconnections
+local function ClickButton(btn)
+    if not btn or not btn.Parent then return false end
+    local ok = false
+    pcall(function()
+        local pos  = btn.AbsolutePosition
+        local size = btn.AbsoluteSize
+        local cx   = math.floor(pos.X + size.X * 0.5)
+        local cy   = math.floor(pos.Y + size.Y * 0.5)
+        -- Tekan ↓
+        VIM:SendMouseButtonEvent(cx, cy, 0, true,  game, 1)
+        task.wait(0.04)
+        -- Lepas ↑  → trigger Activated / MouseButton1Click
+        VIM:SendMouseButtonEvent(cx, cy, 0, false, game, 1)
+        ok = true
+    end)
+    return ok
+end
+
+-- Public helper: tekan satu key di keyboard game (HP only)
 local function MobilePressKey(charStr, isBackspace, isEnter)
-    local btn = FindKeyboardButton(charStr, isBackspace, isEnter)
+    local btns = GetKeyboardButtons()
+    if not btns or not next(btns) then return false end
+
+    local key
+    if isBackspace then
+        key = "backspace"
+    elseif isEnter then
+        key = "enter"
+    elseif charStr and charStr ~= "" then
+        key = charStr:lower()
+    end
+
+    local btn = key and btns[key]
+
+    -- Kalau tidak ketemu, invalidate cache dan coba sekali lagi
+    if not btn then
+        InvalidateKeyboardCache()
+        btns = GetKeyboardButtons()
+        btn  = key and btns and btns[key]
+    end
+
     if btn then
-        ClickButtonByPosition(btn)
-        return true
+        return ClickButton(btn)
+    end
+
+    -- Debug hint di status
+    if LblStatus then
+        LblStatus.Text = "⚠️ Tombol '"..tostring(key).."' tidak ditemukan di keyboard game!"
+        LblStatus.TextColor3 = THEME.Red
     end
     return false
 end
@@ -940,12 +1098,12 @@ end
 local function PCPressKey(charStr, isBackspace, isEnter)
     local kc = nil
     if isBackspace then kc = Enum.KeyCode.Backspace
-    elseif isEnter then kc = Enum.KeyCode.Return
+    elseif isEnter  then kc = Enum.KeyCode.Return
     elseif charStr and charStr ~= "" then
         pcall(function() kc = Enum.KeyCode[string.upper(charStr)] end)
     end
     if kc then
-        VIM:SendKeyEvent(true, kc, false, game)
+        VIM:SendKeyEvent(true,  kc, false, game)
         task.wait(0.015)
         VIM:SendKeyEvent(false, kc, false, game)
     end
@@ -960,9 +1118,15 @@ local function TypeSingleWord(kata, prefix)
         LblStatus.TextColor3 = THEME.Red
         return false
     end
+
     LblTyping.Text = "TARGET: "..string.upper(kata)
     LblStatus.Text = "Menghapus sisa teks..."
     LblStatus.TextColor3 = THEME.Yellow
+
+    -- Pastikan cache keyboard sudah siap sebelum mulai (HP)
+    if isMobile then
+        GetKeyboardButtons()
+    end
 
     local function pressKey(c, back, enter)
         if isMobile then MobilePressKey(c, back, enter)
@@ -983,7 +1147,6 @@ local function TypeSingleWord(kata, prefix)
     local sisaKata = string.sub(kata, #prefix + 1)
     wordStatus = "waiting"
 
-    -- Ketik huruf satu per satu
     for i = 1, #sisaKata do
         if getPrefix() == nil or (currentPlayerTurn and currentPlayerTurn ~= LocalPlayer) then return false end
         local charStr = string.sub(sisaKata, i, i)
@@ -994,7 +1157,7 @@ local function TypeSingleWord(kata, prefix)
 
     task.wait(0.05)
 
-    -- Tekan Enter untuk submit ke server
+    -- Tekan Enter → kirim kata ke server
     pressKey("", false, true)
     task.wait(0.05)
 
@@ -1011,8 +1174,11 @@ local function TypeSingleWord(kata, prefix)
         if RegisterWord(kata) then LocalDB[kata] = true; SaveDatabases()
         else totalDuplicates = totalDuplicates + 1 end
         UpdateDBStatUI()
+        -- Invalidate cache supaya turn berikutnya lookup ulang
+        InvalidateKeyboardCache()
         if TriggerListRefresh then TriggerListRefresh() end
         return true
+
     elseif wordStatus == "used" then
         UsedWords[kata] = true
         LblStatus.Text = "⚠️ SUDAH TERPAKAI: "..string.upper(kata)
@@ -1022,6 +1188,7 @@ local function TypeSingleWord(kata, prefix)
         if TriggerListRefresh then TriggerListRefresh() end
         task.wait(0.1)
         return false
+
     else
         BlacklistDB[kata] = true
         if LocalDB[kata] then LocalDB[kata] = nil end
@@ -1035,12 +1202,14 @@ local function TypeSingleWord(kata, prefix)
         return false
     end
 end
+
 -- ============================================================
 -- CLEAR USE DATA
 -- ============================================================
 local function ClearMatchUseData()
     if next(UsedWords) ~= nil then
         UsedWords = {}
+        InvalidateKeyboardCache()
         UpdateDBStatUI()
         if TriggerListRefresh then TriggerListRefresh() end
         if LblStatus then
@@ -1049,12 +1218,21 @@ local function ClearMatchUseData()
         end
     end
 end
+
 table.insert(scriptConnections, LocalPlayer:GetAttributeChangedSignal("CurrentTable"):Connect(function()
-    if not LocalPlayer:GetAttribute("CurrentTable") then ClearMatchUseData() end
+    if not LocalPlayer:GetAttribute("CurrentTable") then
+        ClearMatchUseData()
+        InvalidateKeyboardCache()
+    end
 end))
+
 if remotes and remotes:FindFirstChild("ResultUI") then
-    table.insert(scriptConnections, remotes.ResultUI.OnClientEvent:Connect(function() ClearMatchUseData() end))
+    table.insert(scriptConnections, remotes.ResultUI.OnClientEvent:Connect(function()
+        ClearMatchUseData()
+        InvalidateKeyboardCache()
+    end))
 end
+
 -- ============================================================
 -- FILTERING ENGINE
 -- ============================================================
@@ -1062,6 +1240,7 @@ local function getSortedPool(prefix)
     local listSME,listIF,listAH,listEX,listEH,listIA,listMEO,listAEK,listMedis,listNasional,listKiamat,nList,allValid,added = {},{},{},{},{},{},{},{},{},{},{},{},{},{}
     local poolCache = WordCache[prefix]
     if not poolCache then return {} end
+
     for _, kata in ipairs(poolCache) do
         if not UsedWords[kata] and not BlacklistDB[kata] then
             if not added[kata] then
@@ -1084,6 +1263,7 @@ local function getSortedPool(prefix)
             end
         end
     end
+
     local function applySort(lst)
         if currentSortIndex == 2 then table.sort(lst, function(a,b) return #a > #b end)
         elseif currentSortIndex == 3 then table.sort(lst, function(a,b) return #a < #b end)
@@ -1091,13 +1271,16 @@ local function getSortedPool(prefix)
             for i = #lst, 2, -1 do local j = math.random(1,i); lst[i],lst[j] = lst[j],lst[i] end
         end
     end
+
     if currentFilterIndex == 1 then
         local p = {}; for _,k in ipairs(allValid) do table.insert(p,k) end
         applySort(p); return p
     end
+
     applySort(listKiamat); applySort(listSME); applySort(listIF); applySort(listAH); applySort(listEX)
     applySort(listEH); applySort(listIA); applySort(listMEO); applySort(listAEK)
     applySort(listMedis); applySort(listNasional); applySort(nList)
+
     local finalPool = {}
     local function interleave(...)
         local lists = {...}; local maxLen = 0
@@ -1107,6 +1290,7 @@ local function getSortedPool(prefix)
     local function addResiduals(...)
         for _,l in ipairs({...}) do for _,k in ipairs(l) do table.insert(finalPool,k) end end
     end
+
     if currentFilterIndex == 2 then addResiduals(listKiamat,listSME,listIF,listAH,listEX,listEH,listIA,listMEO,listAEK,nList); return finalPool
     elseif currentFilterIndex == 3 then interleave(listSME,listIF,listAH,listEX,listEH,listIA,listMEO,listAEK)
     elseif currentFilterIndex == 4 then interleave(listSME,listIF,listAH,listEX); addResiduals(listEH,listIA,listMEO,listAEK)
@@ -1127,6 +1311,7 @@ local function getSortedPool(prefix)
     for _,k in ipairs(nList) do table.insert(finalPool,k) end
     return finalPool
 end
+
 -- ============================================================
 -- UI LIST
 -- ============================================================
@@ -1135,6 +1320,7 @@ local function updateListUI(prefix)
     for _, child in ipairs(Scroll:GetChildren()) do
         if child:IsA("TextLabel") or child:IsA("TextButton") then child:Destroy() end
     end
+
     local headerLbl = Instance.new("TextLabel")
     headerLbl.Size = UDim2.new(1, -10, 0, 20)
     headerLbl.BackgroundTransparency = 1
@@ -1143,9 +1329,11 @@ local function updateListUI(prefix)
     headerLbl.TextXAlignment = Enum.TextXAlignment.Left
     headerLbl.LayoutOrder = 0
     headerLbl.Parent = Scroll
+
     if #pool > 0 then
         headerLbl.Text = "["..#pool.." kata] Klik utk Ketik/Salin:"
         headerLbl.TextColor3 = THEME.Neon
+
         for i, kata in ipairs(pool) do
             if i > 300 then break end
             local btn = Instance.new("TextButton")
@@ -1156,9 +1344,11 @@ local function updateListUI(prefix)
             btn.TextXAlignment = Enum.TextXAlignment.Left
             btn.LayoutOrder = i
             btn.Parent = Scroll
+
             local w = string.lower(kata)
             local iconStr = ""
             local txtColor = THEME.TextColor
+
             if string.match(w, "[wxzvfq]$") or string.match(w, "uz$") then iconStr = "💀 "; txtColor = THEME.Kiamat
             elseif currentFilterIndex == 16 and isMedicalWord(w) then iconStr = "🏥 "; txtColor = THEME.Pink
             elseif currentFilterIndex == 17 and isNationalWord(w) then iconStr = "🇮🇩 "; txtColor = THEME.Nasional
@@ -1172,10 +1362,13 @@ local function updateListUI(prefix)
             elseif string.sub(w,-3) == "aek" then iconStr = "🦠 "; txtColor = Color3.fromRGB(150,255,50)
             end
             if currentSortIndex == 4 then iconStr = "🎲 "..iconStr end
+
             btn.Text = i..". "..iconStr..string.upper(kata)
             btn.TextColor3 = txtColor
+
             btn.MouseEnter:Connect(function() TweenService:Create(btn, tweenFast, {BackgroundTransparency = 0.8, BackgroundColor3 = THEME.TitleColor}):Play() end)
             btn.MouseLeave:Connect(function() TweenService:Create(btn, tweenFast, {BackgroundTransparency = 1}):Play() end)
+
             btn.MouseButton1Click:Connect(function()
                 if isTyping then return end
                 if currentPlayerTurn and currentPlayerTurn ~= LocalPlayer then
@@ -1208,11 +1401,13 @@ local function updateListUI(prefix)
         headerLbl.TextColor3 = THEME.Red
     end
 end
+
 function TriggerListRefresh()
     local searchTxt = SearchBox.Text:lower():gsub("[^%a]", "")
     if searchTxt ~= "" then updateListUI(searchTxt)
     else local p = getPrefix(); if p then updateListUI(p) end end
 end
+
 SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
     if isTyping then return end
     local searchTxt = SearchBox.Text:lower():gsub("[^%a]", "")
@@ -1226,6 +1421,7 @@ SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
         TriggerListRefresh()
     end
 end)
+
 -- ============================================================
 -- AUTO-TYPE
 -- ============================================================
@@ -1242,16 +1438,20 @@ local function ExecuteAutoType(prefix, searchPool)
         if success then break else strikeCount = strikeCount + 1 end
     end
 end
+
 -- ============================================================
 -- MAIN LOOP
 -- ============================================================
 mainThread = task.spawn(function()
     local lastPrefix = nil
     local lastSearch = nil
+
     while scriptActive do
         task.wait(0.1)
         if not dbLoaded then continue end
+
         local searchTxt = SearchBox.Text:lower():gsub("[^%a]", "")
+
         if searchTxt ~= "" then
             LblJoin.Text = "🔍 MODE PENCARIAN MANUAL"
             LblJoin.TextColor3 = THEME.Cyan
@@ -1262,31 +1462,42 @@ mainThread = task.spawn(function()
             if searchTxt ~= lastSearch then lastSearch = searchTxt; updateListUI(searchTxt) end
             isTyping = false; continue
         else lastSearch = nil end
+
         local function isJoinedFast()
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("Humanoid") then if char.Humanoid.Sit == false then return false end end
             local ok, r = pcall(function()
                 local m = LocalPlayer.PlayerGui:FindFirstChild("MatchUI")
                 return m and m.Enabled and m:FindFirstChild("BottomUI") and m.BottomUI.Visible
             end)
             return ok and r
         end
+
         if not isJoinedFast() then
             LblJoin.Text = "● Belum join meja"; LblJoin.TextColor3 = THEME.Red
             LblPre.Text = "HURUF AWAL: -"
             LblStatus.Text = "Menunggu join meja..."
             LblTyping.Text = "TARGET: -"
-            if lastPrefix ~= nil then lastPrefix = nil; setScrollPlaceholder("Silakan Join Meja.", THEME.Neon) end
+            if lastPrefix ~= nil then
+                lastPrefix = nil
+                InvalidateKeyboardCache()
+                setScrollPlaceholder("Silakan Join Meja.", THEME.Neon)
+            end
             continue
         end
+
         LblJoin.Text = "● Sudah join meja"; LblJoin.TextColor3 = THEME.Neon
+
         local prefix = getPrefix()
         if prefix then
             if prefix ~= lastPrefix then
                 lastPrefix = prefix
                 LblPre.Text = "HURUF AWAL: "..string.upper(prefix)
+                -- Warm-up cache keyboard saat prefix baru muncul (HP)
+                if isMobile then
+                    task.spawn(function() GetKeyboardButtons() end)
+                end
                 updateListUI(prefix)
             end
+
             if not isTyping then
                 if autoTypeEnabled then
                     if currentPlayerTurn == LocalPlayer then
@@ -1320,6 +1531,7 @@ mainThread = task.spawn(function()
         end
     end
 end)
+
 -- ============================================================
 -- BUTTON EVENTS
 -- ============================================================
@@ -1331,20 +1543,25 @@ BtnPlay.MouseButton1Click:Connect(function()
     if autoTypeEnabled then
         BtnPlay.Text = "■  STOP AUTO PLAY"
         TweenService:Create(BtnPlay, TweenInfo.new(0.2), {BackgroundColor3 = THEME.BtnStop}):Play()
+        -- Warm-up keyboard cache saat start (HP)
+        if isMobile then task.spawn(function() GetKeyboardButtons() end) end
     else
         BtnPlay.Text = "▶  START AUTO PLAY"
         TweenService:Create(BtnPlay, TweenInfo.new(0.2), {BackgroundColor3 = THEME.BtnStart}):Play()
     end
     UpdateInfoUI()
 end)
+
 BtnExp.MouseButton1Click:Connect(function()
     if setclipboard then setclipboard(HttpService:JSONEncode(LocalDB)); LblStatus.Text = "DB Disalin!"; LblStatus.TextColor3 = THEME.Neon
     else LblStatus.Text = "Executor tidak support Copy!"; LblStatus.TextColor3 = THEME.Red end
 end)
+
 BtnExpB.MouseButton1Click:Connect(function()
     if setclipboard then setclipboard(HttpService:JSONEncode(BlacklistDB)); LblStatus.Text = "Blacklist Disalin!"; LblStatus.TextColor3 = THEME.Neon
     else LblStatus.Text = "Executor tidak support Copy!"; LblStatus.TextColor3 = THEME.Red end
 end)
+
 BtnImp.MouseButton1Click:Connect(function()
     local jsonText = ImportBox.Text
     if jsonText == "" then LblStatus.Text = "Paste JSON dulu!"; LblStatus.TextColor3 = THEME.Red; return end
@@ -1361,6 +1578,7 @@ BtnImp.MouseButton1Click:Connect(function()
         ImportBox.Text = ""
     else LblStatus.Text = "JSON Tidak Valid!"; LblStatus.TextColor3 = THEME.Red end
 end)
+
 BtnImpB.MouseButton1Click:Connect(function()
     local jsonText = ImportBox.Text
     if jsonText == "" then LblStatus.Text = "Paste JSON Blacklist dulu!"; LblStatus.TextColor3 = THEME.Red; return end
@@ -1379,6 +1597,7 @@ BtnImpB.MouseButton1Click:Connect(function()
         ImportBox.Text = ""
     else LblStatus.Text = "JSON Tidak Valid!"; LblStatus.TextColor3 = THEME.Red end
 end)
+
 -- ============================================================
 -- DB LOADER
 -- ============================================================
@@ -1401,8 +1620,10 @@ task.spawn(function()
     UpdateDBStatUI()
     setScrollPlaceholder("Silakan Join Meja.", THEME.Neon)
 end)
+
 MainScale.Scale = 0
 TweenService:Create(MainScale, tweenBounce, {Scale = 1}):Play()
+
 -- ============================================================
 -- ANTI-AFK
 -- ============================================================
