@@ -1295,33 +1295,70 @@ local function getSortedPool(prefix)
     applySort(listMedis); applySort(listNasional); applySort(nList)
 
     local finalPool = {}
+
+    -- addResiduals: tambah list ke finalPool apa adanya (sudah di-applySort sebelumnya)
+    local function addResiduals(...)
+        for _,l in ipairs({...}) do for _,k in ipairs(l) do table.insert(finalPool,k) end end
+    end
+
+    -- interleave: rotasi antar kategori (SME → IF → AH → ... round-robin)
+    -- Dipakai hanya saat sort = Normal agar siklus kategori terjaga
     local function interleave(...)
         local lists = {...}; local maxLen = 0
         for _,l in ipairs(lists) do if #l > maxLen then maxLen = #l end end
         for i = 1, maxLen do for _,l in ipairs(lists) do if l[i] then table.insert(finalPool, l[i]) end end end
     end
-    local function addResiduals(...)
-        for _,l in ipairs({...}) do for _,k in ipairs(l) do table.insert(finalPool,k) end end
+
+    -- mergeAndSort: gabung semua list prioritas → sort global → masuk finalPool
+    -- Dipakai saat sort = Terpanjang/Terpendek/Acak agar urutan global benar
+    local function mergeAndSort(...)
+        local merged = {}
+        for _,l in ipairs({...}) do for _,k in ipairs(l) do table.insert(merged, k) end end
+        applySort(merged)
+        for _,k in ipairs(merged) do table.insert(finalPool, k) end
     end
 
-    if currentFilterIndex == 2 then addResiduals(listKiamat,listSME,listIF,listAH,listEX,listEH,listIA,listMEO,listAEK,nList); return finalPool
-    elseif currentFilterIndex == 3 then interleave(listSME,listIF,listAH,listEX,listEH,listIA,listMEO,listAEK)
-    elseif currentFilterIndex == 4 then interleave(listSME,listIF,listAH,listEX); addResiduals(listEH,listIA,listMEO,listAEK)
-    elseif currentFilterIndex == 5 then interleave(listEH,listIA,listMEO,listAEK); addResiduals(listSME,listIF,listAH,listEX)
-    elseif currentFilterIndex == 6 then interleave(listSME,listIF,listAH); addResiduals(listEX,listEH,listIA,listMEO,listAEK)
-    elseif currentFilterIndex == 7 then interleave(listSME,listIF,listEX); addResiduals(listAH,listEH,listIA,listMEO,listAEK)
-    elseif currentFilterIndex == 8 then interleave(listSME,listAH,listEX); addResiduals(listIF,listEH,listIA,listMEO,listAEK)
-    elseif currentFilterIndex == 9 then interleave(listIF,listAH,listEX); addResiduals(listSME,listEH,listIA,listMEO,listAEK)
-    elseif currentFilterIndex == 10 then interleave(listSME,listIF); addResiduals(listAH,listEX,listEH,listIA,listMEO,listAEK)
-    elseif currentFilterIndex == 11 then interleave(listSME,listAH); addResiduals(listIF,listEX,listEH,listIA,listMEO,listAEK)
-    elseif currentFilterIndex == 12 then interleave(listSME,listEX); addResiduals(listIF,listAH,listEH,listIA,listMEO,listAEK)
-    elseif currentFilterIndex == 13 then interleave(listIF,listAH); addResiduals(listSME,listEX,listEH,listIA,listMEO,listAEK)
-    elseif currentFilterIndex == 14 then interleave(listIF,listEX); addResiduals(listSME,listAH,listEH,listIA,listMEO,listAEK)
-    elseif currentFilterIndex == 15 then interleave(listAH,listEX); addResiduals(listSME,listIF,listEH,listIA,listMEO,listAEK)
-    elseif currentFilterIndex == 16 then addResiduals(listMedis,listSME,listIF,listAH,listEX,listEH,listIA,listMEO,listAEK,nList); return finalPool
-    elseif currentFilterIndex == 17 then addResiduals(listNasional,listSME,listIF,listAH,listEX,listEH,listIA,listMEO,listAEK,nList); return finalPool
+    -- Kalau sort bukan Normal (1), pakai merge global; kalau Normal, pakai interleave rotasi
+    local useGlobalSort = (currentSortIndex ~= 1)
+
+    -- Helper: terapkan rotasi atau merge tergantung mode sort
+    local function applyRotasi(priorityLists, residualLists)
+        if useGlobalSort then
+            mergeAndSort(table.unpack(priorityLists))
+        else
+            interleave(table.unpack(priorityLists))
+        end
+        addResiduals(table.unpack(residualLists))
     end
-    for _,k in ipairs(nList) do table.insert(finalPool,k) end
+
+    if currentFilterIndex == 2 then
+        if useGlobalSort then mergeAndSort(listKiamat,listSME,listIF,listAH,listEX,listEH,listIA,listMEO,listAEK)
+        else addResiduals(listKiamat,listSME,listIF,listAH,listEX,listEH,listIA,listMEO,listAEK) end
+        addResiduals(nList); return finalPool
+    elseif currentFilterIndex == 16 then
+        if useGlobalSort then mergeAndSort(listMedis,listSME,listIF,listAH,listEX,listEH,listIA,listMEO,listAEK)
+        else addResiduals(listMedis,listSME,listIF,listAH,listEX,listEH,listIA,listMEO,listAEK) end
+        addResiduals(nList); return finalPool
+    elseif currentFilterIndex == 17 then
+        if useGlobalSort then mergeAndSort(listNasional,listSME,listIF,listAH,listEX,listEH,listIA,listMEO,listAEK)
+        else addResiduals(listNasional,listSME,listIF,listAH,listEX,listEH,listIA,listMEO,listAEK) end
+        addResiduals(nList); return finalPool
+    elseif currentFilterIndex == 3  then applyRotasi({listSME,listIF,listAH,listEX,listEH,listIA,listMEO,listAEK}, {})
+    elseif currentFilterIndex == 4  then applyRotasi({listSME,listIF,listAH,listEX}, {listEH,listIA,listMEO,listAEK})
+    elseif currentFilterIndex == 5  then applyRotasi({listEH,listIA,listMEO,listAEK}, {listSME,listIF,listAH,listEX})
+    elseif currentFilterIndex == 6  then applyRotasi({listSME,listIF,listAH}, {listEX,listEH,listIA,listMEO,listAEK})
+    elseif currentFilterIndex == 7  then applyRotasi({listSME,listIF,listEX}, {listAH,listEH,listIA,listMEO,listAEK})
+    elseif currentFilterIndex == 8  then applyRotasi({listSME,listAH,listEX}, {listIF,listEH,listIA,listMEO,listAEK})
+    elseif currentFilterIndex == 9  then applyRotasi({listIF,listAH,listEX}, {listSME,listEH,listIA,listMEO,listAEK})
+    elseif currentFilterIndex == 10 then applyRotasi({listSME,listIF}, {listAH,listEX,listEH,listIA,listMEO,listAEK})
+    elseif currentFilterIndex == 11 then applyRotasi({listSME,listAH}, {listIF,listEX,listEH,listIA,listMEO,listAEK})
+    elseif currentFilterIndex == 12 then applyRotasi({listSME,listEX}, {listIF,listAH,listEH,listIA,listMEO,listAEK})
+    elseif currentFilterIndex == 13 then applyRotasi({listIF,listAH}, {listSME,listEX,listEH,listIA,listMEO,listAEK})
+    elseif currentFilterIndex == 14 then applyRotasi({listIF,listEX}, {listSME,listAH,listEH,listIA,listMEO,listAEK})
+    elseif currentFilterIndex == 15 then applyRotasi({listAH,listEX}, {listSME,listIF,listEH,listIA,listMEO,listAEK})
+    end
+
+    addResiduals(nList)
     return finalPool
 end
 
