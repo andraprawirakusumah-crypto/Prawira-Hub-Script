@@ -1,7 +1,7 @@
 -- ========================================================================
 --  Script  : PRAWIRA HUB - SAWIT GARDEN V56 (DYNAMIC STEALTH & ANTI SEROBOT)
 --  Author  : PrawiraXLIV
---  Update  : 100% PURE V41.8 TAP LOGIC + INVISIBLE ANTI ERROR 277
+--  Update  : PURE V41.8 TAP LOGIC + V56 STEALTH + ANTI ERROR 277
 -- ========================================================================
 
 local Players             = game:GetService("Players")
@@ -247,7 +247,7 @@ HdrFrame.BackgroundTransparency = 1; HdrFrame.Active = true
 
 local Title = Instance.new("TextLabel", HdrFrame)
 Title.Size = UDim2.new(1,-80,1,0); Title.BackgroundTransparency = 1
-Title.Text = "PrawiraHub - Sawit Garden V56  |  🛑 PURE V41.8 LOGIC (NO 277)"
+Title.Text = "PrawiraHub - Sawit Garden V56  |  🛑 V41.8 LOGIC (NO FREEZE)"
 Title.TextColor3 = THEME.TitleColor; Title.Font = THEME.Font
 Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Active = true
@@ -732,8 +732,7 @@ local afkLbl = makeLbl(LX, LW, 448, "🛡️ Ultimate Fix | PrawiraHub V56", Col
 local farmThread, buyThread, sellThread
 
 -- ========================================================================
--- [V41.8] UNIVERSAL PROMPT TRIGGER DI-COPY MENTAH-MENTAH 
--- (HANYA INI YANG MENGURUSI TAP DI HP & PC)
+-- [V41.8] UNIVERSAL PROMPT TRIGGER (100% PURE LOGIC)
 -- ========================================================================
 local function firePromptUniversal(prompt)
     if not prompt then return end
@@ -758,7 +757,7 @@ local function stopPromptUniversal(prompt)
 end
 
 -- ========================================================================
--- GOD MODE & ANTI-FALL (TETAP SAMA SEPERTI ASLI)
+-- GOD MODE & ANTI-FALL
 -- ========================================================================
 local GodModeConnection
 local function setGodMode(state)
