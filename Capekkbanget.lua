@@ -1,7 +1,7 @@
 -- ========================================================================
 --  Script  : PRAWIRA HUB - SAWIT GARDEN V56 (DYNAMIC STEALTH & ANTI SEROBOT)
 --  Author  : PrawiraXLIV
---  Update  : ORIGINAL INTERACT RESTORED + MOBILE JUMP FIX + ANTI 277
+--  Update  : ORIGINAL PC INTERACT RESTORED + ANTI-FREEZE WALK FIX
 -- ========================================================================
 
 local Players             = game:GetService("Players")
@@ -247,7 +247,7 @@ HdrFrame.BackgroundTransparency = 1; HdrFrame.Active = true
 
 local Title = Instance.new("TextLabel", HdrFrame)
 Title.Size = UDim2.new(1,-80,1,0); Title.BackgroundTransparency = 1
-Title.Text = "PrawiraHub - Sawit Garden V56  |  🛑 ORIGINAL INTERACT & HP FIX"
+Title.Text = "PrawiraHub - Sawit Garden V56  |  🛑 PC LOGIC RESTORED & HP FIX"
 Title.TextColor3 = THEME.TitleColor; Title.Font = THEME.Font
 Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Active = true
@@ -873,7 +873,7 @@ local function evaluateTargetSafety(targetPos)
     return isOccupied, needsStealth, occName
 end
 
--- V56: DYNAMIC SMART WALK 
+-- V56: DYNAMIC SMART WALK (DIPERBAIKI AGAR TIDAK FREEZE SEBELUM NYAMPE)
 local function smartWalkTo(targetPos, timeout, acceptRadius, baseMethod, abortOnOccupied)
     local char = LocalPlayer.Character
     local hum = char and char:FindFirstChild("Humanoid")
@@ -927,7 +927,6 @@ local function smartWalkTo(targetPos, timeout, acceptRadius, baseMethod, abortOn
         if stuckTimer >= 0.8 then 
             local moveDist = (Vector3.new(root.Position.X, 0, root.Position.Z) - Vector3.new(lastPos.X, 0, lastPos.Z)).Magnitude
             if moveDist < 1.5 and not _G.IsFarmingAction then 
-                -- KOMBINASI JUMP (VIRTUAL INPUT UNTUK PC + ENGINE JUMP UNTUK HP)
                 hum.Jump = true 
                 pcall(function() VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Space, false, game) end)
                 task.delay(0.1, function()
@@ -938,9 +937,8 @@ local function smartWalkTo(targetPos, timeout, acceptRadius, baseMethod, abortOn
             stuckTimer = 0
         end
 
-        if (hum.WalkToPoint - targetPos).Magnitude > 2 then
-            hum:MoveTo(targetPos)
-        end
+        -- MEMAKSA KARAKTER JALAN NORMAL TANPA THROTTLE AGAR TIDAK FREEZE DI DEPAN POHON
+        hum:MoveTo(targetPos)
         
         task.wait(0.1)
         t = t + 0.1
@@ -1054,7 +1052,7 @@ local function getTreePrompts()
                 table.insert(cachedPrompts, obj)
             end
             index = index + 1
-            if index % 3000 == 0 then task.wait() end -- Anti 277 Yield
+            if index % 3000 == 0 then task.wait() end -- Anti 277 Thread Yield
         end
         nextCacheUpdate = tick() + 10 
     end
@@ -1083,7 +1081,7 @@ local function getTreePrompts()
 end
 
 -- ========================================================================
--- PROSES AMBIL SAWIT (ORIGINAL LOGIC RESTORED)
+-- PROSES AMBIL SAWIT (ORIGINAL PC LOGIC)
 -- ========================================================================
 local function collectMySawitTools()
     local myId = LocalPlayer.UserId
@@ -1162,7 +1160,7 @@ local function collectMySawitTools()
                         end
 
                         if prompt then
-                            -- ORIGINAL LOGIC RESTORED HERE
+                            -- ORIGINAL INTERACT LOGIC
                             local oldLine = prompt.RequiresLineOfSight; local oldMax = prompt.MaxActivationDistance
                             prompt.RequiresLineOfSight = false
                             prompt.MaxActivationDistance = 50 
@@ -1228,7 +1226,7 @@ end
 local function startAutoFarm()
     if farmThread then task.cancel(farmThread) end
     checkAndEquipBestTool() 
-    AddLog("🟢 Auto Farm ON. Mesin PrawiraHub mulai (Original Mode)...")
+    AddLog("🟢 Auto Farm ON. Mesin PrawiraHub mulai...")
     
     local lastWaitLog = 0
 
@@ -1375,7 +1373,7 @@ local function startAutoFarm()
                                 unlockMovement(hum); task.wait(1); return 
                             end
 
-                            -- ORIGINAL LOGIC RESTORED HERE
+                            -- ORIGINAL INTERACT LOGIC
                             local oldLine = nearest.RequiresLineOfSight; local oldMax = nearest.MaxActivationDistance
                             nearest.RequiresLineOfSight = false; nearest.MaxActivationDistance = 50
 
