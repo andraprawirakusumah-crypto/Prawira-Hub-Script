@@ -1,7 +1,7 @@
 -- ========================================================================
 --  Script  : PRAWIRA HUB - SAWIT GARDEN V56 (DYNAMIC STEALTH & ANTI SEROBOT)
 --  Author  : PrawiraXLIV
---  Update  : 100% PURE ORIGINAL LOGIC RESTORED + INVISIBLE ANTI 277
+--  Update  : 100% MOBILE TAP UI FIXED (NO VIRTUAL KEYBOARD BUG) + ANTI 277
 -- ========================================================================
 
 local Players             = game:GetService("Players")
@@ -16,7 +16,15 @@ local HttpService         = game:GetService("HttpService")
 local LocalPlayer         = Players.LocalPlayer
 local Camera              = workspace.CurrentCamera
 
+-- Deteksi HP yang akurat
 local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+
+-- MENCEGAH BUG UI BERUBAH JADI HURUF 'G'/'E' DI HP
+local function SendKey(key, isPressed)
+    if not isMobile then
+        pcall(function() VirtualInputManager:SendKeyEvent(isPressed, key, false, game) end)
+    end
+end
 
 -- ========================================================================
 -- CLEANUP PREVIOUS INSTANCE
@@ -247,7 +255,7 @@ HdrFrame.BackgroundTransparency = 1; HdrFrame.Active = true
 
 local Title = Instance.new("TextLabel", HdrFrame)
 Title.Size = UDim2.new(1,-80,1,0); Title.BackgroundTransparency = 1
-Title.Text = "PrawiraHub - Sawit Garden V56  |  🛑 DYNAMIC STEALTH WALK-TO-TP"
+Title.Text = "PrawiraHub - Sawit Garden V56  |  🛑 HP TAP BUG FIXED"
 Title.TextColor3 = THEME.TitleColor; Title.Font = THEME.Font
 Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Active = true
@@ -873,6 +881,7 @@ local function evaluateTargetSafety(targetPos)
     return isOccupied, needsStealth, occName
 end
 
+-- V56: DYNAMIC SMART WALK 
 local function smartWalkTo(targetPos, timeout, acceptRadius, baseMethod, abortOnOccupied)
     local char = LocalPlayer.Character
     local hum = char and char:FindFirstChild("Humanoid")
@@ -896,7 +905,7 @@ local function smartWalkTo(targetPos, timeout, acceptRadius, baseMethod, abortOn
 
         if distance <= acceptRadius then
             hum:MoveTo(root.Position) -- STOP WALKING
-            pcall(function() VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Space, false, game) end)
+            SendKey(Enum.KeyCode.Space, false)
             return true
         end
 
@@ -905,14 +914,14 @@ local function smartWalkTo(targetPos, timeout, acceptRadius, baseMethod, abortOn
         if abortOnOccupied and isOcc then
             AddLog("🚨 Titik diserobot oleh " .. occName .. " saat kita di jalan! Membatalkan & Mencari yg lain...")
             hum:MoveTo(root.Position)
-            pcall(function() VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Space, false, game) end)
+            SendKey(Enum.KeyCode.Space, false)
             return false
         end
         
         if baseMethod == "Teleport" and not needsStealth then
             AddLog("💨 Situasi aman! Langsung Teleport instan ke target...")
             hum:MoveTo(root.Position)
-            pcall(function() VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Space, false, game) end)
+            SendKey(Enum.KeyCode.Space, false)
             setGodMode(true)
             local tpSuccess = flyTeleport(targetPos)
             task.wait(0.2)
@@ -927,9 +936,9 @@ local function smartWalkTo(targetPos, timeout, acceptRadius, baseMethod, abortOn
             local moveDist = (Vector3.new(root.Position.X, 0, root.Position.Z) - Vector3.new(lastPos.X, 0, lastPos.Z)).Magnitude
             if moveDist < 1.5 and not _G.IsFarmingAction then 
                 hum.Jump = true 
-                pcall(function() VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Space, false, game) end)
+                SendKey(Enum.KeyCode.Space, true)
                 task.delay(0.1, function()
-                    pcall(function() VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Space, false, game) end)
+                    SendKey(Enum.KeyCode.Space, false)
                 end)
             end
             lastPos = root.Position
@@ -940,7 +949,7 @@ local function smartWalkTo(targetPos, timeout, acceptRadius, baseMethod, abortOn
         task.wait(0.1)
         t = t + 0.1
     end
-    pcall(function() VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Space, false, game) end)
+    SendKey(Enum.KeyCode.Space, false)
     return false
 end
 
@@ -1170,7 +1179,7 @@ local function collectMySawitTools()
                             local key = prompt.KeyboardKeyCode or Enum.KeyCode.E
                             
                             AddLog("⌨️ Menahan tombol " .. key.Name .. " secara paksa sampai Sawit terambil...")
-                            pcall(function() VirtualInputManager:SendKeyEvent(true, key, false, game) end)
+                            SendKey(key, true)
                             pcall(function() prompt:InputHoldBegin() end)
                             
                             local timeoutLimit = 300
@@ -1183,7 +1192,7 @@ local function collectMySawitTools()
                             end
                             
                             AddLog("✋ Melepas " .. key.Name .. " (Sawit terambil / masuk tas).")
-                            pcall(function() VirtualInputManager:SendKeyEvent(false, key, false, game) end)
+                            SendKey(key, false)
                             pcall(function() prompt:InputHoldEnd() end)
 
                             if Camera then
@@ -1377,13 +1386,13 @@ local function startAutoFarm()
                             local startSawitCount = countMySawitTools()
                             
                             AddLog("🪓 Memulai proses nebang dengan tombol " .. key.Name .. "...")
-                            pcall(function() VirtualInputManager:SendKeyEvent(true, key, false, game) end)
+                            SendKey(key, true)
                             pcall(function() nearest:InputHoldBegin() end)
                             
                             task.wait(holdDuration + 0.1)
 
-                            AddLog("✋ Melepas klik. Menunggu animasi Pohon Tumbang selama 13 Detik...")
-                            pcall(function() VirtualInputManager:SendKeyEvent(false, key, false, game) end)
+                            AddLog("✋ Melepas klik. Menunggu animasi Pohon Tumbang...")
+                            SendKey(key, false)
                             pcall(function() nearest:InputHoldEnd() end)
 
                             if nearest:IsDescendantOf(workspace) then
