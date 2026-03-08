@@ -1,7 +1,7 @@
 -- ========================================================================
---  Script  : PRAWIRA HUB - SAWIT GARDEN V56 (DYNAMIC STEALTH & ANTI SEROBOT)
+--  Script  : PRAWIRA HUB - SAWIT GARDEN V56 (MOBILE TAP FIX + ANTI 277)
 --  Author  : PrawiraXLIV
---  Update  : AUTO-SELECT PLAYER + JUMP FIX 5x + ZONE BUG FIX + ANTI 277 + LOCK MOVEMENT FIX
+--  Update  : V41.8 TAP LOGIC + AUTO-SELECT PLAYER + LOCK MOVEMENT
 -- ========================================================================
 
 local Players             = game:GetService("Players")
@@ -16,6 +16,7 @@ local HttpService         = game:GetService("HttpService")
 local LocalPlayer         = Players.LocalPlayer
 local Camera              = workspace.CurrentCamera
 
+-- Deteksi apakah device adalah HP/Mobile
 local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
 -- ========================================================================
@@ -247,7 +248,7 @@ HdrFrame.BackgroundTransparency = 1; HdrFrame.Active = true
 
 local Title = Instance.new("TextLabel", HdrFrame)
 Title.Size = UDim2.new(1,-80,1,0); Title.BackgroundTransparency = 1
-Title.Text = "PrawiraHub - Sawit Garden V56  |  🛑 AUTO-SELECT RADAR ACTIVE"
+Title.Text = "PrawiraHub - Sawit Garden V56  |  🛑 V41.8 MOBILE TAP SYSTEM"
 Title.TextColor3 = THEME.TitleColor; Title.Font = THEME.Font
 Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Active = true
@@ -748,7 +749,7 @@ cpyBtn.BackgroundColor3 = Color3.fromRGB(30,80,130); cpyBtn.Text = "Copy"
 cpyBtn.TextColor3 = THEME.TextWhite; clrBtn.Font = THEME.Font; cpyBtn.TextSize = 10; AddStyle(cpyBtn,5)
 
 -- ========================================================================
-local afkLbl = makeLbl(LX, LW, 448, "🛡️ Ultimate Fix | PrawiraHub V56", Color3.fromRGB(150,150,150), 10, Enum.TextXAlignment.Left)
+local afkLbl = makeLbl(LX, LW, 448, "🛡️ V41.8 Tap System | PrawiraHub V56", Color3.fromRGB(150,150,150), 10, Enum.TextXAlignment.Left)
 
 -- ========================================================================
 -- CORE ENGINE: FARM, BUY, SELL
@@ -759,12 +760,15 @@ local farmThread, buyThread, sellThread
 _G.IsFarmingAction = false
 
 -- ========================================================================
--- [V41.8] UNIVERSAL PROMPT TRIGGER (100% PURE LOGIC)
+-- [V41.8] UNIVERSAL PROMPT TRIGGER (100% PURE LOGIC, MOBILE SAFE)
 -- ========================================================================
 local function firePromptUniversal(prompt)
     if not prompt then return end
     if fireproximityprompt then
         pcall(function() fireproximityprompt(prompt) end)
+    elseif isMobile then
+        -- DI HP: JANGAN PAKAI KEYBOARD SIMULATION SUPAYA GAK MUNCUL "G"
+        pcall(function() prompt:InputHoldBegin() end)
     else
         local key = prompt.KeyboardKeyCode
         if key and key ~= Enum.KeyCode.Unknown then
@@ -775,7 +779,11 @@ end
 
 local function stopPromptUniversal(prompt)
     if not prompt then return end
-    if not fireproximityprompt then
+    if fireproximityprompt then
+        -- Biasanya fireproximityprompt langsung ngeksekusi full durasi secara instan di background
+    elseif isMobile then
+        pcall(function() prompt:InputHoldEnd() end)
+    else
         local key = prompt.KeyboardKeyCode
         if key and key ~= Enum.KeyCode.Unknown then
             pcall(function() VirtualInputManager:SendKeyEvent(false, key, false, game) end)
@@ -1144,7 +1152,7 @@ local function getTreePrompts()
 end
 
 -- ========================================================================
--- PROSES AMBIL SAWIT
+-- PROSES AMBIL SAWIT (V41.8 TAP LOGIC)
 -- ========================================================================
 local function collectMySawitTools()
     local myId = LocalPlayer.UserId
@@ -1230,6 +1238,7 @@ local function collectMySawitTools()
                             end
                             task.wait(0.1)
                             
+                            -- [V41.8 MOBILE TAP LOGIC]
                             firePromptUniversal(prompt)
                             local elapsed = 0
                             while item.Parent == workspace and elapsed < 5 do
@@ -1428,33 +1437,22 @@ local function startAutoFarm()
                             end
                             task.wait(0.1)
 
-                            local key = nearest.KeyboardKeyCode or Enum.KeyCode.E
-                            local holdDuration = nearest.HoldDuration > 0 and nearest.HoldDuration or 0.1
-                            local startSawitCount = countMySawitTools()
-                            
-                            AddLog("🪓 Memulai proses nebang dengan tombol " .. key.Name .. "...")
-                            pcall(function() VirtualInputManager:SendKeyEvent(true, key, false, game) end)
-                            pcall(function() nearest:InputHoldBegin() end)
-                            
-                            task.wait(holdDuration + 0.1)
+                            -- [V41.8 MOBILE TAP LOGIC UNTUK NEBANG]
+                            firePromptUniversal(nearest)
+                            local elapsed = 0; local success = false; local startSawitCount = countMySawitTools()
 
-                            AddLog("✋ Melepas klik. Menunggu Sawit jatuh...")
-                            pcall(function() VirtualInputManager:SendKeyEvent(false, key, false, game) end)
-                            pcall(function() nearest:InputHoldEnd() end)
+                            while elapsed < 20 do
+                                if not char.Parent or hum.Health <= 0 then break end
+                                task.wait(0.5); elapsed = elapsed + 0.5
+                                if not AutoFarmEnabled then break end
+                                if fireproximityprompt then firePromptUniversal(nearest) end
+                                if countMySawitTools() > startSawitCount then success = true; break end
+                                if not nearest.Parent or not nearest.Parent:IsDescendantOf(workspace) then success = true; break end
+                            end
+                            stopPromptUniversal(nearest)
 
                             if nearest:IsDescendantOf(workspace) then
                                 nearest.RequiresLineOfSight = oldLine; nearest.MaxActivationDistance = oldMax
-                            end
-                            
-                            local waitDrop = 0
-                            local success = false
-                            while waitDrop < 25 and AutoFarmEnabled do
-                                if countMySawitTools() > startSawitCount then 
-                                    success = true
-                                    break 
-                                end
-                                task.wait(0.5)
-                                waitDrop = waitDrop + 0.5
                             end
                             
                             if success then
@@ -1474,7 +1472,7 @@ local function startAutoFarm()
                             else
                                 if AutoFarmEnabled then 
                                     local failKey = getPosKey(targetPos)
-                                    AddLog("⚠️ Gagal! Tidak ada Sawit yg jatuh setelah 25 Detik. Memblokir titik " .. failKey)
+                                    AddLog("⚠️ Gagal! Tidak ada Sawit yg jatuh setelah 20 Detik. Memblokir titik " .. failKey)
                                     ignoredPositions[failKey] = tick() + 60 
                                 end
                                 unlockMovement(hum)
@@ -1862,7 +1860,7 @@ CloseBtn.MouseButton1Click:Connect(function()
     TweenService:Create(CloseScale, tweenBounce, {Scale=1}):Play()
 end)
 
-AddLog("✅ PrawiraHub V56 loaded successfully!")
+AddLog("✅ PrawiraHub V56 (Mobile Fix) loaded successfully!")
 
 -- Entry Animation
 MainScale.Scale = 0
