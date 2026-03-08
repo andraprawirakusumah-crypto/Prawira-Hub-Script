@@ -1,7 +1,7 @@
 -- ========================================================================
---  Script  : PRAWIRA HUB - SAWIT GARDEN V56 (MOBILE TAP + DYNAMIC TELEPORT)
+--  Script  : PRAWIRA HUB - SAWIT GARDEN V56 (MOBILE TAP + ANTI 277 FINAL)
 --  Author  : PrawiraXLIV
---  Update  : V41.8 TAP LOGIC + VOLCANO DYNAMIC STEALTH-TO-TP + SYNTAX FIX
+--  Update  : INSTANT ONE-TAP LOGIC + VOLCANO DYNAMIC TP + NO SPAM REMOTES
 -- ========================================================================
 
 local Players             = game:GetService("Players")
@@ -28,9 +28,6 @@ if guiParent:FindFirstChild("PrawiraHubSawit") then
 end
 local scriptConnections = {}
 
--- ============================================================
--- SYSTEM FOLDER BUILDER
--- ============================================================
 local function SetupFolders()
     if makefolder then
         pcall(function()
@@ -248,7 +245,7 @@ HdrFrame.BackgroundTransparency = 1; HdrFrame.Active = true
 
 local Title = Instance.new("TextLabel", HdrFrame)
 Title.Size = UDim2.new(1,-80,1,0); Title.BackgroundTransparency = 1
-Title.Text = "PrawiraHub - Sawit Garden V56  |  🛑 SMART VOLCANO TP & TAP SYSTEM"
+Title.Text = "PrawiraHub - Sawit Garden V56  |  🛑 ONE-TAP ANTI ERROR 277"
 Title.TextColor3 = THEME.TitleColor; Title.Font = THEME.Font
 Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Active = true
@@ -749,7 +746,7 @@ cpyBtn.BackgroundColor3 = Color3.fromRGB(30,80,130); cpyBtn.Text = "Copy"
 cpyBtn.TextColor3 = THEME.TextWhite; clrBtn.Font = THEME.Font; cpyBtn.TextSize = 10; AddStyle(cpyBtn,5)
 
 -- ========================================================================
-local afkLbl = makeLbl(LX, LW, 448, "🛡️ Ultimate Mobile Fix | PrawiraHub V56", Color3.fromRGB(150,150,150), 10, Enum.TextXAlignment.Left)
+local afkLbl = makeLbl(LX, LW, 448, "🛡️ Anti 277 Mobile Fix | PrawiraHub V56", Color3.fromRGB(150,150,150), 10, Enum.TextXAlignment.Left)
 
 -- ========================================================================
 -- CORE ENGINE: FARM, BUY, SELL
@@ -758,34 +755,46 @@ local farmThread, buyThread, sellThread
 _G.IsFarmingAction = false
 
 -- ========================================================================
--- [V41.8] UNIVERSAL PROMPT TRIGGER (100% PURE LOGIC, MOBILE SAFE)
+-- [NEW] SAFE INTERACT (ANTI SPAM / ANTI 277)
 -- ========================================================================
-local function firePromptUniversal(prompt)
+local function SafeInteract(prompt)
     if not prompt then return end
-    if fireproximityprompt then
-        pcall(function() fireproximityprompt(prompt) end)
-    elseif isMobile then
-        pcall(function() prompt:InputHoldBegin() end)
-    else
-        local key = prompt.KeyboardKeyCode
-        if key and key ~= Enum.KeyCode.Unknown then
-            pcall(function() VirtualInputManager:SendKeyEvent(true, key, false, game) end)
-        end
-    end
-end
+    pcall(function()
+        local oldLine = prompt.RequiresLineOfSight
+        local oldMax = prompt.MaxActivationDistance
+        local oldHold = prompt.HoldDuration
 
-local function stopPromptUniversal(prompt)
-    if not prompt then return end
-    if fireproximityprompt then
-        -- fireproximityprompt usually resolves instantly, no end needed.
-    elseif isMobile then
-        pcall(function() prompt:InputHoldEnd() end)
-    else
-        local key = prompt.KeyboardKeyCode
-        if key and key ~= Enum.KeyCode.Unknown then
-            pcall(function() VirtualInputManager:SendKeyEvent(false, key, false, game) end)
+        prompt.RequiresLineOfSight = false
+        prompt.MaxActivationDistance = 50
+        prompt.HoldDuration = 0 -- JADIKAN ONE-TAP INSTANT AGAR TIDAK PERLU DITAHAN LAMA
+
+        task.wait(0.05) -- Beri nafas untuk server sync
+
+        if fireproximityprompt then
+            pcall(function() fireproximityprompt(prompt) end)
+        elseif isMobile then
+            -- Murni tap sentuh, tidak perlu pakai virtual keyboard G
+            pcall(function() prompt:InputHoldBegin() end)
+            task.wait(0.05)
+            pcall(function() prompt:InputHoldEnd() end)
+        else
+            local key = prompt.KeyboardKeyCode or Enum.KeyCode.E
+            if key ~= Enum.KeyCode.Unknown then
+                pcall(function() VirtualInputManager:SendKeyEvent(true, key, false, game) end)
+                task.wait(0.05)
+                pcall(function() VirtualInputManager:SendKeyEvent(false, key, false, game) end)
+            end
         end
-    end
+
+        -- Kembalikan kondisi prompt ke asal agar tidak error
+        task.delay(1, function()
+            if prompt and prompt.Parent then
+                prompt.RequiresLineOfSight = oldLine
+                prompt.MaxActivationDistance = oldMax
+                prompt.HoldDuration = oldHold
+            end
+        end)
+    end)
 end
 
 -- ========================================================================
@@ -970,7 +979,7 @@ local function smartWalkTo(targetPos, timeout, acceptRadius, baseMethod, abortOn
             return false
         end
         
-        -- DYNAMIC TP TRANSITION (Jika player udah pergi dari Volcano)
+        -- DYNAMIC TP TRANSITION (Jika player udah pergi dari Volcano/Area)
         if baseMethod == "Teleport" and not needsStealth then
             local zNameStr = zoneName == "Input2" and "Volcano" or (zoneName == "Input" and "Wowo" or tostring(zoneName))
             AddLog("💨 Area " .. zNameStr .. " terpantau KOSONG! Mengubah mode Jalan menjadi Teleport Instan...")
@@ -1159,7 +1168,7 @@ local function getTreePrompts()
 end
 
 -- ========================================================================
--- PROSES AMBIL SAWIT (V41.8 MOBILE TAP)
+-- PROSES AMBIL SAWIT (V41.8 MOBILE SAFE)
 -- ========================================================================
 local function collectMySawitTools()
     local myId = LocalPlayer.UserId
@@ -1237,34 +1246,18 @@ local function collectMySawitTools()
                         end
 
                         if prompt then
-                            local oldLine = prompt.RequiresLineOfSight; local oldMax = prompt.MaxActivationDistance
-                            prompt.RequiresLineOfSight = false; prompt.MaxActivationDistance = 50 
-                            
                             if Camera then 
                                 Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, primaryPart.Position) 
                             end
-                            task.wait(0.1)
                             
-                            -- PURE TAP LOGIC UNTUK MOBILE (ANTI 277)
-                            firePromptUniversal(prompt)
-                            local elapsed = 0
-                            while item.Parent == workspace and elapsed < 5 do
-                                if not char.Parent or hum.Health <= 0 then break end
-                                task.wait(0.2); elapsed = elapsed + 0.2
-                                if fireproximityprompt then firePromptUniversal(prompt) end
-                                if not AutoFarmEnabled then break end
-                            end
-                            stopPromptUniversal(prompt)
-
-                            if prompt:IsDescendantOf(workspace) then
-                                prompt.RequiresLineOfSight = oldLine
-                                prompt.MaxActivationDistance = oldMax
-                            end
+                            AddLog("✋ Mengambil Sawit (One-Tap)...")
+                            SafeInteract(prompt)
+                            
+                            -- Beri jeda sebentar untuk server merespon
+                            task.wait(0.5)
                         else
                             task.wait(1)
                         end
-                        
-                        task.wait(0.2)
                         
                         if item.Parent ~= workspace then 
                             AddLog("✅ Berhasil memungut Sawit ke tas!")
@@ -1436,29 +1429,16 @@ local function startAutoFarm()
                                 task.wait(1); return 
                             end
 
-                            local oldLine = nearest.RequiresLineOfSight; local oldMax = nearest.MaxActivationDistance
-                            nearest.RequiresLineOfSight = false; nearest.MaxActivationDistance = 50
-
                             if Camera then
                                 Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, targetPos)
                             end
-                            task.wait(0.1)
 
                             -- PURE TAP LOGIC UNTUK MOBILE (ANTI 277)
-                            AddLog("🪓 Memulai proses menekan tombol layaknya Tap di Layar...")
-                            firePromptUniversal(nearest)
-                            
-                            local holdDuration = nearest.HoldDuration > 0 and nearest.HoldDuration or 0.1
-                            task.wait(holdDuration + 0.1)
-                            
-                            AddLog("✋ Melepas sentuhan. Menunggu Sawit jatuh...")
-                            stopPromptUniversal(nearest)
-
-                            if nearest:IsDescendantOf(workspace) then
-                                nearest.RequiresLineOfSight = oldLine; nearest.MaxActivationDistance = oldMax
-                            end
-                            
+                            AddLog("🪓 Nebang dengan One-Tap Instan...")
                             local startSawitCount = countMySawitTools()
+                            
+                            SafeInteract(nearest)
+                            
                             local waitDrop = 0
                             local success = false
                             
@@ -1772,7 +1752,7 @@ end)
 
 local function ApplySavedState()
     farmToggle.BackgroundColor3 = AutoFarmEnabled    and THEME.BtnStart or THEME.BtnStop
-    farmToggle.Text             = AutoFarmEnabled    and "AUTO Farm: ON" or "AUTO FARM: OFF"
+    farmToggle.Text             = AutoFarmEnabled    and "AUTO FARM: ON" or "AUTO FARM: OFF"
     abToggle.BackgroundColor3   = AutoBuyEnabled     and THEME.BtnStart or THEME.BtnStop
     abToggle.Text               = AutoBuyEnabled     and "AUTO BUY: ON"  or "AUTO BUY: OFF"
     asToggle.BackgroundColor3   = AutoSellEnabled    and THEME.BtnStart or THEME.BtnStop
@@ -1876,7 +1856,7 @@ CloseBtn.MouseButton1Click:Connect(function()
     TweenService:Create(CloseScale, tweenBounce, {Scale=1}):Play()
 end)
 
-AddLog("✅ PrawiraHub V56 (Mobile Tap Fix) loaded successfully!")
+AddLog("✅ PrawiraHub V56 (FINAL Anti-277 Mobile Fix) loaded successfully!")
 
 -- Entry Animation
 MainScale.Scale = 0
