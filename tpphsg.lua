@@ -1,7 +1,7 @@
 -- ========================================================================
---  Script  : PRAWIRA HUB - SAWIT GARDEN V56 (MOBILE TAP FIX + ANTI 277)
+--  Script  : PRAWIRA HUB - SAWIT GARDEN V56 (MOBILE TAP + DYNAMIC TELEPORT)
 --  Author  : PrawiraXLIV
---  Update  : V41.8 TAP LOGIC + AUTO-SELECT PLAYER + LOCK MOVEMENT
+--  Update  : V41.8 TAP LOGIC + VOLCANO DYNAMIC STEALTH-TO-TP
 -- ========================================================================
 
 local Players             = game:GetService("Players")
@@ -248,7 +248,7 @@ HdrFrame.BackgroundTransparency = 1; HdrFrame.Active = true
 
 local Title = Instance.new("TextLabel", HdrFrame)
 Title.Size = UDim2.new(1,-80,1,0); Title.BackgroundTransparency = 1
-Title.Text = "PrawiraHub - Sawit Garden V56  |  🛑 V41.8 MOBILE TAP SYSTEM"
+Title.Text = "PrawiraHub - Sawit Garden V56  |  🛑 SMART VOLCANO TP & TAP SYSTEM"
 Title.TextColor3 = THEME.TitleColor; Title.Font = THEME.Font
 Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Active = true
@@ -621,7 +621,7 @@ makeLbl(MX, MW, 195, "💰 AUTO SELL:", THEME.TitleColor, 12)
 local asToggle = Instance.new("TextButton", Frame)
 asToggle.Size = UDim2.new(0,MW,0,32); asToggle.Position = UDim2.new(0,MX,0,215)
 asToggle.BackgroundColor3 = THEME.BtnStop; asToggle.Text = "AUTO SELL: OFF"
-asToggle.TextColor3 = THEME.TextColor; asToggle.Font = THEME.Font; asToggle.TextSize = 12
+asToggle.TextColor3 = THEME.TextColor; asToggle.Font = THEME.Font; castToggle = asToggle.TextSize = 12
 AddStyle(asToggle, 6); applyDynamicHover(asToggle, function() return AutoSellEnabled end)
 
 makeLbl(MX, MW, 255, "Sell Interval (Secs):", THEME.TextWhite, 11)
@@ -749,14 +749,12 @@ cpyBtn.BackgroundColor3 = Color3.fromRGB(30,80,130); cpyBtn.Text = "Copy"
 cpyBtn.TextColor3 = THEME.TextWhite; clrBtn.Font = THEME.Font; cpyBtn.TextSize = 10; AddStyle(cpyBtn,5)
 
 -- ========================================================================
-local afkLbl = makeLbl(LX, LW, 448, "🛡️ V41.8 Tap System | PrawiraHub V56", Color3.fromRGB(150,150,150), 10, Enum.TextXAlignment.Left)
+local afkLbl = makeLbl(LX, LW, 448, "🛡️ Ultimate Mobile Fix | PrawiraHub V56", Color3.fromRGB(150,150,150), 10, Enum.TextXAlignment.Left)
 
 -- ========================================================================
 -- CORE ENGINE: FARM, BUY, SELL
 -- ========================================================================
 local farmThread, buyThread, sellThread
-
--- STATUS LOCK UNTUK ANTI-LONCAT
 _G.IsFarmingAction = false
 
 -- ========================================================================
@@ -767,7 +765,6 @@ local function firePromptUniversal(prompt)
     if fireproximityprompt then
         pcall(function() fireproximityprompt(prompt) end)
     elseif isMobile then
-        -- DI HP: JANGAN PAKAI KEYBOARD SIMULATION SUPAYA GAK MUNCUL "G"
         pcall(function() prompt:InputHoldBegin() end)
     else
         local key = prompt.KeyboardKeyCode
@@ -780,7 +777,7 @@ end
 local function stopPromptUniversal(prompt)
     if not prompt then return end
     if fireproximityprompt then
-        -- Biasanya fireproximityprompt langsung ngeksekusi full durasi secara instan di background
+        -- fireproximityprompt usually resolves instantly, no end needed.
     elseif isMobile then
         pcall(function() prompt:InputHoldEnd() end)
     else
@@ -797,7 +794,7 @@ end
 local function lockMovement(hum, root)
     if not hum or not root then return end
     _G.IsFarmingAction = true
-    hum:MoveTo(root.Position) -- BATALKAN SEMUA PERJALANAN SEBELUMNYA
+    hum:MoveTo(root.Position)
     hum.WalkSpeed = 0
     if hum.UseJumpPower then
         hum.JumpPower = 0
@@ -908,12 +905,20 @@ local function flyTeleport(targetPos)
 end
 
 -- ========================================================================
--- RADAR & ANTI-SEROBOT POHON
+-- RADAR & ANTI-SEROBOT POHON (NEW VOLCANO FULL RADIUS)
 -- ========================================================================
-local function evaluateTargetSafety(targetPos)
+local function evaluateTargetSafety(targetPos, zoneName)
     local isOccupied = false
     local needsStealth = false
     local occName = ""
+    
+    -- RADIUS KHUSUS: Volcano = 250 (Biar yakin 100% kosong se-gunung)
+    local stealthRadius = 80
+    if zoneName == "Input2" then
+        stealthRadius = 250 
+    elseif zoneName == "Input" then
+        stealthRadius = 120
+    end
     
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
@@ -922,7 +927,7 @@ local function evaluateTargetSafety(targetPos)
                 isOccupied = true
                 occName = p.Name
             end
-            if dist <= 80 then
+            if dist <= stealthRadius then
                 needsStealth = true
             end
         end
@@ -930,7 +935,7 @@ local function evaluateTargetSafety(targetPos)
     return isOccupied, needsStealth, occName
 end
 
-local function smartWalkTo(targetPos, timeout, acceptRadius, baseMethod, abortOnOccupied)
+local function smartWalkTo(targetPos, timeout, acceptRadius, baseMethod, abortOnOccupied, zoneName)
     local char = LocalPlayer.Character
     local hum = char and char:FindFirstChild("Humanoid")
     local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -956,7 +961,7 @@ local function smartWalkTo(targetPos, timeout, acceptRadius, baseMethod, abortOn
             return true
         end
 
-        local isOcc, needsStealth, occName = evaluateTargetSafety(targetPos)
+        local isOcc, needsStealth, occName = evaluateTargetSafety(targetPos, zoneName)
         
         if abortOnOccupied and isOcc then
             AddLog("🚨 Titik diserobot oleh " .. occName .. " saat kita di jalan! Membatalkan & Mencari yg lain...")
@@ -965,8 +970,10 @@ local function smartWalkTo(targetPos, timeout, acceptRadius, baseMethod, abortOn
             return false
         end
         
+        -- DYNAMIC TP TRANSITION (Jika player udah pergi dari Volcano)
         if baseMethod == "Teleport" and not needsStealth then
-            AddLog("💨 Situasi aman! Langsung Teleport instan ke target...")
+            local zNameStr = zoneName == "Input2" and "Volcano" or (zoneName == "Input" and "Wowo" or tostring(zoneName))
+            AddLog("💨 Area " .. zNameStr .. " terpantau KOSONG! Mengubah mode Jalan menjadi Teleport Instan...")
             hum:MoveTo(root.Position)
             setGodMode(true)
             local tpSuccess = flyTeleport(targetPos)
@@ -1152,7 +1159,7 @@ local function getTreePrompts()
 end
 
 -- ========================================================================
--- PROSES AMBIL SAWIT (V41.8 TAP LOGIC)
+-- PROSES AMBIL SAWIT (V41.8 MOBILE TAP)
 -- ========================================================================
 local function collectMySawitTools()
     local myId = LocalPlayer.UserId
@@ -1207,7 +1214,7 @@ local function collectMySawitTools()
                     end
 
                     local targetPos = Vector3.new(primaryPart.Position.X, primaryPart.Position.Y, primaryPart.Position.Z)
-                    local _, needsStealth, _ = evaluateTargetSafety(targetPos)
+                    local _, needsStealth, _ = evaluateTargetSafety(targetPos, "Loot")
                     local actualCollectMethod = baseMethod
                     local reachedTarget = false
                     
@@ -1221,7 +1228,7 @@ local function collectMySawitTools()
                     else
                         AddLog("🏃 Berjalan menembus persis ke tengah badannya Sawit...")
                         setGodMode(false); setAntiFall(false)
-                        reachedTarget = smartWalkTo(targetPos, 30, 1.5, baseMethod, false) 
+                        reachedTarget = smartWalkTo(targetPos, 30, 1.5, baseMethod, false, "Loot") 
                     end
 
                     if reachedTarget then
@@ -1238,7 +1245,7 @@ local function collectMySawitTools()
                             end
                             task.wait(0.1)
                             
-                            -- [V41.8 MOBILE TAP LOGIC]
+                            -- PURE TAP LOGIC UNTUK MOBILE (ANTI 277)
                             firePromptUniversal(prompt)
                             local elapsed = 0
                             while item.Parent == workspace and elapsed < 5 do
@@ -1334,7 +1341,7 @@ local function startAutoFarm()
                 
                 for _, v in ipairs(validInputs) do
                     local pp = v.Parent:IsA("Model") and v.Parent:GetPivot().Position or v.Parent.Position
-                    local isOcc, stealth, occName = evaluateTargetSafety(pp)
+                    local isOcc, stealth, occName = evaluateTargetSafety(pp, v.Parent.Name)
                     
                     if not isOcc then
                         table.insert(unoccupiedInputs, v)
@@ -1414,7 +1421,7 @@ local function startAutoFarm()
                         else
                             AddLog("🏃 Berjalan kaki menuju titik " .. treeZoneName .. "...")
                             setGodMode(false); setAntiFall(false) 
-                            reachedTarget = smartWalkTo(targetPos, walkTimeout, 6, baseMethod, true) 
+                            reachedTarget = smartWalkTo(targetPos, walkTimeout, 6, baseMethod, true, treeZoneName) 
                         end
 
                         if reachedTarget then
@@ -1437,22 +1444,31 @@ local function startAutoFarm()
                             end
                             task.wait(0.1)
 
-                            -- [V41.8 MOBILE TAP LOGIC UNTUK NEBANG]
+                            -- PURE TAP LOGIC UNTUK MOBILE (ANTI 277)
+                            AddLog("🪓 Memulai proses menekan tombol layaknya Tap di Layar...")
                             firePromptUniversal(nearest)
-                            local elapsed = 0; local success = false; local startSawitCount = countMySawitTools()
-
-                            while elapsed < 20 do
-                                if not char.Parent or hum.Health <= 0 then break end
-                                task.wait(0.5); elapsed = elapsed + 0.5
-                                if not AutoFarmEnabled then break end
-                                if fireproximityprompt then firePromptUniversal(nearest) end
-                                if countMySawitTools() > startSawitCount then success = true; break end
-                                if not nearest.Parent or not nearest.Parent:IsDescendantOf(workspace) then success = true; break end
-                            end
+                            
+                            local holdDuration = nearest.HoldDuration > 0 and nearest.HoldDuration or 0.1
+                            task.wait(holdDuration + 0.1)
+                            
+                            AddLog("✋ Melepas sentuhan. Menunggu Sawit jatuh...")
                             stopPromptUniversal(nearest)
 
                             if nearest:IsDescendantOf(workspace) then
                                 nearest.RequiresLineOfSight = oldLine; nearest.MaxActivationDistance = oldMax
+                            end
+                            
+                            local startSawitCount = countMySawitTools()
+                            local waitDrop = 0
+                            local success = false
+                            
+                            while waitDrop < 25 and AutoFarmEnabled do
+                                if countMySawitTools() > startSawitCount then 
+                                    success = true
+                                    break 
+                                end
+                                task.wait(0.5)
+                                waitDrop = waitDrop + 0.5
                             end
                             
                             if success then
@@ -1472,7 +1488,7 @@ local function startAutoFarm()
                             else
                                 if AutoFarmEnabled then 
                                     local failKey = getPosKey(targetPos)
-                                    AddLog("⚠️ Gagal! Tidak ada Sawit yg jatuh setelah 20 Detik. Memblokir titik " .. failKey)
+                                    AddLog("⚠️ Gagal! Tidak ada Sawit yg jatuh setelah 25 Detik. Memblokir titik " .. failKey)
                                     ignoredPositions[failKey] = tick() + 60 
                                 end
                                 unlockMovement(hum)
@@ -1860,7 +1876,7 @@ CloseBtn.MouseButton1Click:Connect(function()
     TweenService:Create(CloseScale, tweenBounce, {Scale=1}):Play()
 end)
 
-AddLog("✅ PrawiraHub V56 (Mobile Fix) loaded successfully!")
+AddLog("✅ PrawiraHub V56 (Mobile Tap Fix) loaded successfully!")
 
 -- Entry Animation
 MainScale.Scale = 0
