@@ -1,7 +1,7 @@
 -- ========================================================================
 --  Script  : PRAWIRA HUB - SAWIT GARDEN V56 (DYNAMIC STEALTH & ANTI SEROBOT)
 --  Author  : PrawiraXLIV
---  Update  : PURE V41.8 TAP LOGIC + V56 STEALTH + ANTI ERROR 277
+--  Update  : PURE V56 UI + V41.8 TAP LOGIC + ANCHOR/CANCOLLIDE RESTORED + ANTI 277
 -- ========================================================================
 
 local Players             = game:GetService("Players")
@@ -247,7 +247,7 @@ HdrFrame.BackgroundTransparency = 1; HdrFrame.Active = true
 
 local Title = Instance.new("TextLabel", HdrFrame)
 Title.Size = UDim2.new(1,-80,1,0); Title.BackgroundTransparency = 1
-Title.Text = "PrawiraHub - Sawit Garden V56  |  🛑 V41.8 LOGIC (NO FREEZE)"
+Title.Text = "PrawiraHub - Sawit Garden V56  |  🛑 PURE LOGIC + FULL FIX"
 Title.TextColor3 = THEME.TitleColor; Title.Font = THEME.Font
 Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Active = true
@@ -1062,7 +1062,7 @@ local function getTreePrompts()
 end
 
 -- ========================================================================
--- PROSES AMBIL SAWIT (V41.8 PURE LOGIC)
+-- PROSES AMBIL SAWIT (V41.8 PURE LOGIC DENGAN ANCHOR RESTORED)
 -- ========================================================================
 local function collectMySawitTools()
     local myId = LocalPlayer.UserId
@@ -1092,6 +1092,23 @@ local function collectMySawitTools()
                     while item.Parent == workspace and primaryPart and math.abs(primaryPart.AssemblyLinearVelocity.Y) > 0.5 and fallTimer < 50 do
                         task.wait(0.1)
                         fallTimer = fallTimer + 1
+                    end
+
+                    -- [RESTORED] LOGIC ANCHOR & CANCOLLIDE SAWIT
+                    if item.Parent == workspace then
+                        for _, part in ipairs(item:GetDescendants()) do
+                            if part:IsA("BasePart") then part.Anchored = true end
+                        end
+                        AddLog("⚓ Sawit milikmu di-Anchor...")
+                        task.wait(0.1) 
+                        
+                        for _, part in ipairs(item:GetDescendants()) do
+                            if part:IsA("BasePart") then
+                                part.CanCollide = false
+                                part.Massless = true
+                            end
+                        end
+                        AddLog("👻 CanCollide dimatikan agar tubuh bisa tembus Sawit...")
                     end
 
                     local baseMethod = FarmMethod
