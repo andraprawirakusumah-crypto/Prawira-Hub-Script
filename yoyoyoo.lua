@@ -1,7 +1,7 @@
 -- ========================================================================
 --  Script  : PRAWIRA HUB - SAWIT GARDEN V56 (DYNAMIC STEALTH & ANTI SEROBOT)
 --  Author  : PrawiraXLIV
---  Update  : PURE LOGIC + ANTI 277 + JUMP LIMIT 5x + RESTORED ANCHOR
+--  Update  : AUTO-SELECT PLAYER DETECTED + PURE LOGIC + ANTI 277 + JUMP LIMIT
 -- ========================================================================
 
 local Players             = game:GetService("Players")
@@ -247,7 +247,7 @@ HdrFrame.BackgroundTransparency = 1; HdrFrame.Active = true
 
 local Title = Instance.new("TextLabel", HdrFrame)
 Title.Size = UDim2.new(1,-80,1,0); Title.BackgroundTransparency = 1
-Title.Text = "PrawiraHub - Sawit Garden V56  |  🛑 DYNAMIC STEALTH WALK-TO-TP"
+Title.Text = "PrawiraHub - Sawit Garden V56  |  🛑 AUTO-SELECT RADAR ACTIVE"
 Title.TextColor3 = THEME.TitleColor; Title.Font = THEME.Font
 Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Active = true
@@ -666,6 +666,30 @@ UpdatePlayerDropdown = CreateDropdown(RX, 68, RW, {"Refreshing..."}, 1, function
 end)
 refreshPlayers()
 
+-- FUNGSI BARU: Auto-select player di Dropdown
+local function AutoSelectDetectedPlayer(occName)
+    if occName and occName ~= "" and occName ~= selectedTargetPlayer then
+        task.spawn(function()
+            targetPlayerList = {}
+            for _, p in ipairs(Players:GetPlayers()) do
+                if p ~= LocalPlayer then table.insert(targetPlayerList, p.Name) end
+            end
+            if #targetPlayerList == 0 then table.insert(targetPlayerList, "No Players Found") end
+            
+            local foundIdx = 1
+            for i, name in ipairs(targetPlayerList) do
+                if name == occName then foundIdx = i; break end
+            end
+            
+            selectedTargetPlayer = occName
+            if UpdatePlayerDropdown then
+                UpdatePlayerDropdown.UpdateItems(targetPlayerList, foundIdx)
+            end
+            AddLog("🎯 Target Player otomatis di-set ke: " .. occName)
+        end)
+    end
+end
+
 local refreshBtn = Instance.new("TextButton", Frame)
 refreshBtn.Size = UDim2.new(0,RW,0,26); refreshBtn.Position = UDim2.new(0,RX,0,100)
 refreshBtn.BackgroundColor3 = Color3.fromRGB(40,100,160); refreshBtn.Text = "🔄 Refresh Players"
@@ -731,6 +755,9 @@ local afkLbl = makeLbl(LX, LW, 448, "🛡️ Ultimate Fix | PrawiraHub V56", Col
 -- ========================================================================
 local farmThread, buyThread, sellThread
 
+-- STATUS LOCK UNTUK ANTI-LONCAT
+_G.IsFarmingAction = false
+
 -- ========================================================================
 -- [V41.8] UNIVERSAL PROMPT TRIGGER (100% PURE LOGIC)
 -- ========================================================================
@@ -754,6 +781,36 @@ local function stopPromptUniversal(prompt)
             pcall(function() VirtualInputManager:SendKeyEvent(false, key, false, game) end)
         end
     end
+end
+
+-- ========================================================================
+-- MOVEMENT LOCKER (TOTAL FREEZE)
+-- ========================================================================
+local function lockMovement(hum, root)
+    if not hum or not root then return end
+    _G.IsFarmingAction = true
+    hum:MoveTo(root.Position) -- BATALKAN SEMUA PERJALANAN SEBELUMNYA
+    hum.WalkSpeed = 0
+    if hum.UseJumpPower then
+        hum.JumpPower = 0
+    else
+        hum.JumpHeight = 0
+    end
+    pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, false) end)
+    root.AssemblyLinearVelocity = Vector3.zero
+    root.AssemblyAngularVelocity = Vector3.zero
+end
+
+local function unlockMovement(hum)
+    if not hum then return end
+    _G.IsFarmingAction = false
+    hum.WalkSpeed = WalkSpeedValue
+    if hum.UseJumpPower then
+        hum.JumpPower = 50
+    else
+        hum.JumpHeight = 7.2
+    end
+    pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, true) end)
 end
 
 -- ========================================================================
@@ -895,6 +952,7 @@ local function smartWalkTo(targetPos, timeout, acceptRadius, baseMethod, abortOn
         
         if abortOnOccupied and isOcc then
             AddLog("🚨 Titik diserobot oleh " .. occName .. " saat kita di jalan! Membatalkan & Mencari yg lain...")
+            AutoSelectDetectedPlayer(occName)
             hum:MoveTo(root.Position)
             return false
         end
@@ -1039,6 +1097,7 @@ local function getTreePrompts()
             if obj:IsA("ProximityPrompt") then
                 table.insert(cachedPrompts, obj)
             end
+            -- [ANTI 277 FIX] Jeda yang aman untuk CPU HP saat scan map
             searchCount = searchCount + 1
             if searchCount % 250 == 0 then task.wait() end 
         end
@@ -1069,7 +1128,7 @@ local function getTreePrompts()
 end
 
 -- ========================================================================
--- PROSES AMBIL SAWIT
+-- PROSES AMBIL SAWIT (V41.8 PURE LOGIC DENGAN ANCHOR RESTORED)
 -- ========================================================================
 local function collectMySawitTools()
     local myId = LocalPlayer.UserId
@@ -1101,6 +1160,7 @@ local function collectMySawitTools()
                         fallTimer = fallTimer + 1
                     end
 
+                    -- [RESTORED] LOGIC ANCHOR & CANCOLLIDE SAWIT
                     if item.Parent == workspace then
                         for _, part in ipairs(item:GetDescendants()) do
                             if part:IsA("BasePart") then part.Anchored = true end
@@ -1155,6 +1215,7 @@ local function collectMySawitTools()
                             end
                             task.wait(0.1)
                             
+                            -- [V41.8 LOGIC PURE]
                             firePromptUniversal(prompt)
                             local elapsed = 0
                             while item.Parent == workspace and elapsed < 5 do
@@ -1258,6 +1319,7 @@ local function startAutoFarm()
                     else
                         if tick() - lastWaitLog > 8 then
                             AddLog("👀 Menghindari titik " .. v.Parent.Name .. " karena dijaga oleh " .. occName)
+                            AutoSelectDetectedPlayer(occName)
                         end
                     end
                 end
@@ -1348,6 +1410,7 @@ local function startAutoFarm()
                             end
                             task.wait(0.1)
 
+                            -- [V41.8 LOGIC PURE]
                             firePromptUniversal(nearest)
 
                             local elapsed = 0; local success = false; local startSawitCount = countMySawitTools()
