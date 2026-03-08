@@ -1,7 +1,7 @@
 -- ========================================================================
 --  Script  : PRAWIRA HUB - SAWIT GARDEN V56 (DYNAMIC STEALTH & ANTI SEROBOT)
 --  Author  : PrawiraXLIV
---  Update  : AUTO-SELECT PLAYER + JUMP FIX 5x + ZONE BUG FIX + ANTI 277
+--  Update  : AUTO-SELECT PLAYER + JUMP FIX 5x + ZONE BUG FIX + ANTI 277 + LOCK MOVEMENT FIX
 -- ========================================================================
 
 local Players             = game:GetService("Players")
@@ -523,7 +523,7 @@ AddStyle(farmToggle, 6); applyDynamicHover(farmToggle, function() return AutoFar
 local movementDropdown
 local function syncMovementDropdown(zoneName)
     if not movementDropdown then return end
-    if zoneName == "Semua Zona" or zoneName == "Semua Zona (2)" then
+    if zoneName == "Semua Zona" or zoneName == "Semua Zona (2)" or zoneName == "All Zones" or zoneName == "All Zones (2)" then
         movementDropdown.SetLocked(true, "Auto Multi Mode")
     else
         movementDropdown.SetLocked(false)
@@ -665,7 +665,7 @@ UpdatePlayerDropdown = CreateDropdown(RX, 68, RW, {"Refreshing..."}, 1, function
     selectedTargetPlayer = m
 end)
 
--- FUNGSI BARU: Auto-select player di Dropdown
+-- Auto-select player di Dropdown
 local function AutoSelectDetectedPlayer(occName, zoneName)
     if occName and occName ~= "" and occName ~= selectedTargetPlayer then
         task.spawn(function()
@@ -900,7 +900,7 @@ local function flyTeleport(targetPos)
 end
 
 -- ========================================================================
--- RADAR & ANTI-SEROBOT POHON (V56 FEATURE)
+-- RADAR & ANTI-SEROBOT POHON
 -- ========================================================================
 local function evaluateTargetSafety(targetPos)
     local isOccupied = false
@@ -1098,7 +1098,6 @@ local function getTreePrompts()
             if obj:IsA("ProximityPrompt") then
                 table.insert(cachedPrompts, obj)
             end
-            -- [ANTI 277 FIX] Jeda yang aman untuk CPU HP saat scan map
             searchCount = searchCount + 1
             if searchCount % 500 == 0 then task.wait() end 
         end
@@ -1122,7 +1121,7 @@ local function getTreePrompts()
                     table.insert(inputs, obj)
                 elseif FarmZone == "Semua Zona" and (pName == "Input" or pName == "Input2") then
                     table.insert(inputs, obj)
-                elseif FarmZone == "Semua Zona (2)" then
+                elseif FarmZone == "Semua Zona (2)" or FarmZone == "All Zones (2)" then
                     if pName == "Input" then
                         table.insert(input1List, obj)
                     elseif pName == "Input2" then
@@ -1133,7 +1132,7 @@ local function getTreePrompts()
         end
     end
 
-    if FarmZone == "Semua Zona (2)" then
+    if FarmZone == "Semua Zona (2)" or FarmZone == "All Zones (2)" then
         if #input2List > 0 then
             inputs = input2List
         else
@@ -1177,7 +1176,6 @@ local function collectMySawitTools()
                         fallTimer = fallTimer + 1
                     end
 
-                    -- [RESTORED] LOGIC ANCHOR & CANCOLLIDE SAWIT
                     if item.Parent == workspace then
                         for _, part in ipairs(item:GetDescendants()) do
                             if part:IsA("BasePart") then part.Anchored = true end
@@ -1195,7 +1193,7 @@ local function collectMySawitTools()
                     end
 
                     local baseMethod = FarmMethod
-                    if (FarmZone == "Semua Zona" or FarmZone == "Semua Zona (2)") then
+                    if (FarmZone == "Semua Zona" or FarmZone == "Semua Zona (2)" or FarmZone == "All Zones" or FarmZone == "All Zones (2)") then
                         local distToSawit = (root.Position - primaryPart.Position).Magnitude
                         if distToSawit > 300 then baseMethod = "Teleport" end
                     end
@@ -1232,7 +1230,6 @@ local function collectMySawitTools()
                             end
                             task.wait(0.1)
                             
-                            -- [V41.8 LOGIC PURE]
                             firePromptUniversal(prompt)
                             local elapsed = 0
                             while item.Parent == workspace and elapsed < 5 do
@@ -1351,7 +1348,7 @@ local function startAutoFarm()
                 end
 
                 local finalInputs = {}
-                if FarmZone == "Semua Zona (2)" then
+                if FarmZone == "Semua Zona (2)" or FarmZone == "All Zones (2)" then
                     local hasVolcanoTree = false
                     for _, v in ipairs(unoccupiedInputs) do
                         if v.Parent and v.Parent.Name == "Input2" then
@@ -1389,7 +1386,7 @@ local function startAutoFarm()
                         AddLog("🔍 Memilih titik kosong " .. treeZoneName .. " terdekat. Jarak: " .. tostring(math.floor(minD)) .. " Studs.")
 
                         local baseMethod = FarmMethod
-                        if (FarmZone == "Semua Zona" or FarmZone == "Semua Zona (2)") and minD > 300 then
+                        if (FarmZone == "Semua Zona" or FarmZone == "Semua Zona (2)" or FarmZone == "All Zones" or FarmZone == "All Zones (2)") and minD > 300 then
                             baseMethod = "Teleport"
                         end
 
@@ -1412,10 +1409,14 @@ local function startAutoFarm()
                         end
 
                         if reachedTarget then
+                            AddLog("📍 Tiba di titik " .. treeZoneName .. ". Mengunci postur...")
+                            lockMovement(hum, root)
+
                             root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
                             task.wait(0.1)
 
                             if not checkAndEquipBestTool(treeZoneName) then 
+                                unlockMovement(hum)
                                 task.wait(1); return 
                             end
 
@@ -1427,32 +1428,42 @@ local function startAutoFarm()
                             end
                             task.wait(0.1)
 
-                            -- [V41.8 LOGIC PURE]
-                            firePromptUniversal(nearest)
+                            local key = nearest.KeyboardKeyCode or Enum.KeyCode.E
+                            local holdDuration = nearest.HoldDuration > 0 and nearest.HoldDuration or 0.1
+                            local startSawitCount = countMySawitTools()
+                            
+                            AddLog("🪓 Memulai proses nebang dengan tombol " .. key.Name .. "...")
+                            pcall(function() VirtualInputManager:SendKeyEvent(true, key, false, game) end)
+                            pcall(function() nearest:InputHoldBegin() end)
+                            
+                            task.wait(holdDuration + 0.1)
 
-                            local elapsed = 0; local success = false; local startSawitCount = countMySawitTools()
-
-                            while elapsed < 20 do
-                                if not char.Parent or hum.Health <= 0 then break end
-                                task.wait(0.5); elapsed = elapsed + 0.5
-                                if not AutoFarmEnabled then break end
-                                if fireproximityprompt then firePromptUniversal(nearest) end
-                                if countMySawitTools() > startSawitCount then success = true; break end
-                                if not nearest.Parent or not nearest.Parent:IsDescendantOf(workspace) then success = true; break end
-                            end
-
-                            stopPromptUniversal(nearest)
+                            AddLog("✋ Melepas klik. Menunggu Sawit jatuh...")
+                            pcall(function() VirtualInputManager:SendKeyEvent(false, key, false, game) end)
+                            pcall(function() nearest:InputHoldEnd() end)
 
                             if nearest:IsDescendantOf(workspace) then
                                 nearest.RequiresLineOfSight = oldLine; nearest.MaxActivationDistance = oldMax
                             end
                             
+                            local waitDrop = 0
+                            local success = false
+                            while waitDrop < 25 and AutoFarmEnabled do
+                                if countMySawitTools() > startSawitCount then 
+                                    success = true
+                                    break 
+                                end
+                                task.wait(0.5)
+                                waitDrop = waitDrop + 0.5
+                            end
+                            
                             if success then
                                 AddLog("🌴 POHON TUMBANG & SAWIT MUNCUL!")
-                                
                                 local successKey = getPosKey(targetPos)
                                 ignoredPositions[successKey] = tick() + 20 
                                 
+                                unlockMovement(hum)
+
                                 if AutoFarmEnabled then
                                     AddLog("📦 Memaksa ambil sawit yang barusan jatuh sampai bersih...")
                                     while countMySawitTools() > 0 and AutoFarmEnabled do
@@ -1466,11 +1477,13 @@ local function startAutoFarm()
                                     AddLog("⚠️ Gagal! Tidak ada Sawit yg jatuh setelah 25 Detik. Memblokir titik " .. failKey)
                                     ignoredPositions[failKey] = tick() + 60 
                                 end
+                                unlockMovement(hum)
                                 task.wait(0.5)
                             end
                         else
                             local failKey = getPosKey(targetPos)
                             ignoredPositions[failKey] = tick() + 60 
+                            unlockMovement(hum)
                         end
                     end
                 else 
@@ -1696,6 +1709,10 @@ farmToggle.MouseButton1Click:Connect(function()
         setGodMode(false)
         setAntiFall(false)
         
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            unlockMovement(LocalPlayer.Character:FindFirstChild("Humanoid"))
+        end
+
         if not spectating then LocalPlayer.DevCameraOcclusionMode = Enum.DevCameraOcclusionMode.Zoom end
         if farmThread then task.cancel(farmThread); farmThread=nil end
         if Camera then
@@ -1814,6 +1831,9 @@ local CloseOverlay, CloseScale = createOverlay("Are you sure you want to close?"
     if farmThread then task.cancel(farmThread) end
     if buyThread  then task.cancel(buyThread)  end
     if sellThread then task.cancel(sellThread) end
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        unlockMovement(LocalPlayer.Character:FindFirstChild("Humanoid"))
+    end
     
     task.spawn(SaveConfig)
     for _,c in ipairs(scriptConnections) do if c.Connected then c:Disconnect() end end
