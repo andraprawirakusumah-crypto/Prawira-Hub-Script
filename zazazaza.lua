@@ -1,7 +1,7 @@
 -- ========================================================================
 --  Script  : PRAWIRA HUB - SAWIT GARDEN V56 (DYNAMIC STEALTH & ANTI SEROBOT)
 --  Author  : PrawiraXLIV
---  Update  : PURE V56 UI + V41.8 TAP LOGIC + ANCHOR/CANCOLLIDE RESTORED + ANTI 277
+--  Update  : PURE LOGIC + ANTI 277 + JUMP LIMIT 5x + RESTORED ANCHOR
 -- ========================================================================
 
 local Players             = game:GetService("Players")
@@ -247,7 +247,7 @@ HdrFrame.BackgroundTransparency = 1; HdrFrame.Active = true
 
 local Title = Instance.new("TextLabel", HdrFrame)
 Title.Size = UDim2.new(1,-80,1,0); Title.BackgroundTransparency = 1
-Title.Text = "PrawiraHub - Sawit Garden V56  |  🛑 PURE LOGIC + FULL FIX"
+Title.Text = "PrawiraHub - Sawit Garden V56  |  🛑 DYNAMIC STEALTH WALK-TO-TP"
 Title.TextColor3 = THEME.TitleColor; Title.Font = THEME.Font
 Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Active = true
@@ -877,6 +877,7 @@ local function smartWalkTo(targetPos, timeout, acceptRadius, baseMethod, abortOn
     acceptRadius = acceptRadius or 6.0
     local lastPos = root.Position
     local stuckTimer = 0
+    local jumpCount = 0
 
     while t < timeout and AutoFarmEnabled do
         if not char.Parent or hum.Health <= 0 then break end
@@ -914,7 +915,14 @@ local function smartWalkTo(targetPos, timeout, acceptRadius, baseMethod, abortOn
         if stuckTimer >= 0.8 then 
             local moveDist = (Vector3.new(root.Position.X, 0, root.Position.Z) - Vector3.new(lastPos.X, 0, lastPos.Z)).Magnitude
             if moveDist < 2.0 then 
-                hum.Jump = true 
+                if jumpCount < 5 then
+                    hum.Jump = true
+                    jumpCount = jumpCount + 1
+                else
+                    AddLog("⚠️ Stuck terdeteksi, berhenti lompat.")
+                end
+            else
+                jumpCount = 0 
             end
             lastPos = root.Position
             stuckTimer = 0
@@ -1031,7 +1039,6 @@ local function getTreePrompts()
             if obj:IsA("ProximityPrompt") then
                 table.insert(cachedPrompts, obj)
             end
-            -- [ANTI 277 FIX] Jeda yang aman untuk CPU HP saat scan map
             searchCount = searchCount + 1
             if searchCount % 250 == 0 then task.wait() end 
         end
@@ -1062,7 +1069,7 @@ local function getTreePrompts()
 end
 
 -- ========================================================================
--- PROSES AMBIL SAWIT (V41.8 PURE LOGIC DENGAN ANCHOR RESTORED)
+-- PROSES AMBIL SAWIT
 -- ========================================================================
 local function collectMySawitTools()
     local myId = LocalPlayer.UserId
@@ -1094,7 +1101,6 @@ local function collectMySawitTools()
                         fallTimer = fallTimer + 1
                     end
 
-                    -- [RESTORED] LOGIC ANCHOR & CANCOLLIDE SAWIT
                     if item.Parent == workspace then
                         for _, part in ipairs(item:GetDescendants()) do
                             if part:IsA("BasePart") then part.Anchored = true end
@@ -1149,7 +1155,6 @@ local function collectMySawitTools()
                             end
                             task.wait(0.1)
                             
-                            -- [V41.8 LOGIC PURE]
                             firePromptUniversal(prompt)
                             local elapsed = 0
                             while item.Parent == workspace and elapsed < 5 do
@@ -1343,7 +1348,6 @@ local function startAutoFarm()
                             end
                             task.wait(0.1)
 
-                            -- [V41.8 LOGIC PURE]
                             firePromptUniversal(nearest)
 
                             local elapsed = 0; local success = false; local startSawitCount = countMySawitTools()
