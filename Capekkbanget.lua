@@ -1,7 +1,7 @@
 -- ========================================================================
 --  Script  : PRAWIRA HUB - SAWIT GARDEN V56 (DYNAMIC STEALTH & ANTI SEROBOT)
 --  Author  : PrawiraXLIV
---  Update  : ORIGINAL PC INTERACT RESTORED + ANTI-FREEZE WALK FIX
+--  Update  : 100% PURE ORIGINAL LOGIC RESTORED + INVISIBLE ANTI 277
 -- ========================================================================
 
 local Players             = game:GetService("Players")
@@ -247,7 +247,7 @@ HdrFrame.BackgroundTransparency = 1; HdrFrame.Active = true
 
 local Title = Instance.new("TextLabel", HdrFrame)
 Title.Size = UDim2.new(1,-80,1,0); Title.BackgroundTransparency = 1
-Title.Text = "PrawiraHub - Sawit Garden V56  |  🛑 PC LOGIC RESTORED & HP FIX"
+Title.Text = "PrawiraHub - Sawit Garden V56  |  🛑 DYNAMIC STEALTH WALK-TO-TP"
 Title.TextColor3 = THEME.TitleColor; Title.Font = THEME.Font
 Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Active = true
@@ -873,7 +873,6 @@ local function evaluateTargetSafety(targetPos)
     return isOccupied, needsStealth, occName
 end
 
--- V56: DYNAMIC SMART WALK (DIPERBAIKI AGAR TIDAK FREEZE SEBELUM NYAMPE)
 local function smartWalkTo(targetPos, timeout, acceptRadius, baseMethod, abortOnOccupied)
     local char = LocalPlayer.Character
     local hum = char and char:FindFirstChild("Humanoid")
@@ -937,9 +936,7 @@ local function smartWalkTo(targetPos, timeout, acceptRadius, baseMethod, abortOn
             stuckTimer = 0
         end
 
-        -- MEMAKSA KARAKTER JALAN NORMAL TANPA THROTTLE AGAR TIDAK FREEZE DI DEPAN POHON
         hum:MoveTo(targetPos)
-        
         task.wait(0.1)
         t = t + 0.1
     end
@@ -1046,13 +1043,13 @@ local function getTreePrompts()
     local now = tick()
     if now > nextCacheUpdate then
         cachedPrompts = {}
-        local index = 0
+        local count = 0
         for _, obj in ipairs(workspace:GetDescendants()) do
             if obj:IsA("ProximityPrompt") then
                 table.insert(cachedPrompts, obj)
             end
-            index = index + 1
-            if index % 3000 == 0 then task.wait() end -- Anti 277 Thread Yield
+            count = count + 1
+            if count % 1000 == 0 then task.wait() end -- Anti Error 277 / Yield Exception
         end
         nextCacheUpdate = tick() + 10 
     end
@@ -1081,7 +1078,7 @@ local function getTreePrompts()
 end
 
 -- ========================================================================
--- PROSES AMBIL SAWIT (ORIGINAL PC LOGIC)
+-- PROSES AMBIL SAWIT
 -- ========================================================================
 local function collectMySawitTools()
     local myId = LocalPlayer.UserId
@@ -1160,7 +1157,6 @@ local function collectMySawitTools()
                         end
 
                         if prompt then
-                            -- ORIGINAL INTERACT LOGIC
                             local oldLine = prompt.RequiresLineOfSight; local oldMax = prompt.MaxActivationDistance
                             prompt.RequiresLineOfSight = false
                             prompt.MaxActivationDistance = 50 
@@ -1373,7 +1369,6 @@ local function startAutoFarm()
                                 unlockMovement(hum); task.wait(1); return 
                             end
 
-                            -- ORIGINAL INTERACT LOGIC
                             local oldLine = nearest.RequiresLineOfSight; local oldMax = nearest.MaxActivationDistance
                             nearest.RequiresLineOfSight = false; nearest.MaxActivationDistance = 50
 
@@ -1387,7 +1382,7 @@ local function startAutoFarm()
                             
                             task.wait(holdDuration + 0.1)
 
-                            AddLog("✋ Melepas klik. Menunggu animasi Pohon Tumbang...")
+                            AddLog("✋ Melepas klik. Menunggu animasi Pohon Tumbang selama 13 Detik...")
                             pcall(function() VirtualInputManager:SendKeyEvent(false, key, false, game) end)
                             pcall(function() nearest:InputHoldEnd() end)
 
