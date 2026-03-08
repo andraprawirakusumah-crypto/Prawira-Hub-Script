@@ -1,7 +1,7 @@
 -- ========================================================================
 --  Script  : PRAWIRA HUB - SAWIT GARDEN V56 (DYNAMIC STEALTH & ANTI SEROBOT)
 --  Author  : PrawiraXLIV
---  Update  : AUTO-SELECT PLAYER DETECTED + PURE LOGIC + ANTI 277 + JUMP LIMIT
+--  Update  : AUTO-SELECT PLAYER + JUMP FIX 5x + ZONE BUG FIX + ANTI 277
 -- ========================================================================
 
 local Players             = game:GetService("Players")
@@ -139,7 +139,7 @@ local SelectedTool       = "EgrekWowo"
 local SellInterval       = 300
 local FarmMethod         = "Walk"
 local WalkSpeedValue     = 40
-local FarmZone           = "All Zones (2)"
+local FarmZone           = "Semua Zona (2)"
 local lastFailedCash     = -1
 
 local ignoredPositions  = {}
@@ -523,7 +523,7 @@ AddStyle(farmToggle, 6); applyDynamicHover(farmToggle, function() return AutoFar
 local movementDropdown
 local function syncMovementDropdown(zoneName)
     if not movementDropdown then return end
-    if zoneName == "All Zones" or zoneName == "All Zones (2)" then
+    if zoneName == "Semua Zona" or zoneName == "Semua Zona (2)" then
         movementDropdown.SetLocked(true, "Auto Multi Mode")
     else
         movementDropdown.SetLocked(false)
@@ -533,7 +533,7 @@ end
 
 makeLbl(LX, LW, 222, "Farm Location (Zone):", THEME.TextWhite, 11)
 local defZoneIdx = 4
-local zoneList = {"Wowo Zone (Input)", "Volcano Zone (Input2)", "All Zones", "All Zones (2)"}
+local zoneList = {"Wowo Zone (Input)", "Volcano Zone (Input2)", "Semua Zona", "Semua Zona (2)"}
 for i,v in ipairs(zoneList) do if v == FarmZone then defZoneIdx = i break end end
 local zoneDropdown = CreateDropdown(LX, 242, LW, zoneList, defZoneIdx, function(_, m)
     FarmZone = m
@@ -664,10 +664,9 @@ end
 UpdatePlayerDropdown = CreateDropdown(RX, 68, RW, {"Refreshing..."}, 1, function(_, m)
     selectedTargetPlayer = m
 end)
-refreshPlayers()
 
 -- FUNGSI BARU: Auto-select player di Dropdown
-local function AutoSelectDetectedPlayer(occName)
+local function AutoSelectDetectedPlayer(occName, zoneName)
     if occName and occName ~= "" and occName ~= selectedTargetPlayer then
         task.spawn(function()
             targetPlayerList = {}
@@ -685,10 +684,11 @@ local function AutoSelectDetectedPlayer(occName)
             if UpdatePlayerDropdown then
                 UpdatePlayerDropdown.UpdateItems(targetPlayerList, foundIdx)
             end
-            AddLog("🎯 Target Player otomatis di-set ke: " .. occName)
+            AddLog("🎯 Auto-Select Player: " .. occName .. " (" .. tostring(zoneName) .. ")")
         end)
     end
 end
+refreshPlayers()
 
 local refreshBtn = Instance.new("TextButton", Frame)
 refreshBtn.Size = UDim2.new(0,RW,0,26); refreshBtn.Position = UDim2.new(0,RX,0,100)
@@ -952,7 +952,7 @@ local function smartWalkTo(targetPos, timeout, acceptRadius, baseMethod, abortOn
         
         if abortOnOccupied and isOcc then
             AddLog("🚨 Titik diserobot oleh " .. occName .. " saat kita di jalan! Membatalkan & Mencari yg lain...")
-            AutoSelectDetectedPlayer(occName)
+            AutoSelectDetectedPlayer(occName, "Radar")
             hum:MoveTo(root.Position)
             return false
         end
@@ -977,7 +977,8 @@ local function smartWalkTo(targetPos, timeout, acceptRadius, baseMethod, abortOn
                     hum.Jump = true
                     jumpCount = jumpCount + 1
                 else
-                    AddLog("⚠️ Stuck terdeteksi, berhenti lompat.")
+                    AddLog("⚠️ Stuck permanen terdeteksi, membatalkan jalan.")
+                    return false
                 end
             else
                 jumpCount = 0 
@@ -1099,12 +1100,15 @@ local function getTreePrompts()
             end
             -- [ANTI 277 FIX] Jeda yang aman untuk CPU HP saat scan map
             searchCount = searchCount + 1
-            if searchCount % 250 == 0 then task.wait() end 
+            if searchCount % 500 == 0 then task.wait() end 
         end
         nextCacheUpdate = tick() + 10 
     end
 
     local inputs = {}
+    local input1List = {} 
+    local input2List = {} 
+
     for _, obj in ipairs(cachedPrompts) do
         if obj and obj.Parent and obj.Enabled and obj:IsDescendantOf(workspace) then
             local pPos = obj.Parent:IsA("Model") and obj.Parent:GetPivot().Position or obj.Parent.Position
@@ -1116,19 +1120,32 @@ local function getTreePrompts()
                     table.insert(inputs, obj)
                 elseif FarmZone == "Volcano Zone (Input2)" and pName == "Input2" then
                     table.insert(inputs, obj)
-                elseif FarmZone == "All Zones" or FarmZone == "All Zones (2)" then
-                    if pName == "Input" or pName == "Input2" then
-                        table.insert(inputs, obj)
+                elseif FarmZone == "Semua Zona" and (pName == "Input" or pName == "Input2") then
+                    table.insert(inputs, obj)
+                elseif FarmZone == "Semua Zona (2)" then
+                    if pName == "Input" then
+                        table.insert(input1List, obj)
+                    elseif pName == "Input2" then
+                        table.insert(input2List, obj)
                     end
                 end
             end
         end
     end
+
+    if FarmZone == "Semua Zona (2)" then
+        if #input2List > 0 then
+            inputs = input2List
+        else
+            inputs = input1List
+        end
+    end
+
     return inputs
 end
 
 -- ========================================================================
--- PROSES AMBIL SAWIT (V41.8 PURE LOGIC DENGAN ANCHOR RESTORED)
+-- PROSES AMBIL SAWIT
 -- ========================================================================
 local function collectMySawitTools()
     local myId = LocalPlayer.UserId
@@ -1178,7 +1195,7 @@ local function collectMySawitTools()
                     end
 
                     local baseMethod = FarmMethod
-                    if (FarmZone == "All Zones" or FarmZone == "All Zones (2)") then
+                    if (FarmZone == "Semua Zona" or FarmZone == "Semua Zona (2)") then
                         local distToSawit = (root.Position - primaryPart.Position).Magnitude
                         if distToSawit > 300 then baseMethod = "Teleport" end
                     end
@@ -1319,7 +1336,7 @@ local function startAutoFarm()
                     else
                         if tick() - lastWaitLog > 8 then
                             AddLog("👀 Menghindari titik " .. v.Parent.Name .. " karena dijaga oleh " .. occName)
-                            AutoSelectDetectedPlayer(occName)
+                            AutoSelectDetectedPlayer(occName, v.Parent.Name)
                         end
                     end
                 end
@@ -1334,7 +1351,7 @@ local function startAutoFarm()
                 end
 
                 local finalInputs = {}
-                if FarmZone == "All Zones (2)" then
+                if FarmZone == "Semua Zona (2)" then
                     local hasVolcanoTree = false
                     for _, v in ipairs(unoccupiedInputs) do
                         if v.Parent and v.Parent.Name == "Input2" then
@@ -1372,7 +1389,7 @@ local function startAutoFarm()
                         AddLog("🔍 Memilih titik kosong " .. treeZoneName .. " terdekat. Jarak: " .. tostring(math.floor(minD)) .. " Studs.")
 
                         local baseMethod = FarmMethod
-                        if (FarmZone == "All Zones" or FarmZone == "All Zones (2)") and minD > 300 then
+                        if (FarmZone == "Semua Zona" or FarmZone == "Semua Zona (2)") and minD > 300 then
                             baseMethod = "Teleport"
                         end
 
