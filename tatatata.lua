@@ -1,7 +1,7 @@
 -- ========================================================================
 --  Script  : PRAWIRA HUB - SAWIT GARDEN V56 (DYNAMIC STEALTH & ANTI SEROBOT)
 --  Author  : PrawiraXLIV
---  Update  : PURE V56 UI + V41.8 UNIVERSAL TAP LOGIC (HP & PC) + ANTI 277
+--  Update  : 100% PURE V41.8 TAP LOGIC + INVISIBLE ANTI ERROR 277
 -- ========================================================================
 
 local Players             = game:GetService("Players")
@@ -247,7 +247,7 @@ HdrFrame.BackgroundTransparency = 1; HdrFrame.Active = true
 
 local Title = Instance.new("TextLabel", HdrFrame)
 Title.Size = UDim2.new(1,-80,1,0); Title.BackgroundTransparency = 1
-Title.Text = "PrawiraHub - Sawit Garden V56  |  🛑 V41.8 UNIVERSAL TAP RESTORED"
+Title.Text = "PrawiraHub - Sawit Garden V56  |  🛑 PURE V41.8 LOGIC (NO 277)"
 Title.TextColor3 = THEME.TitleColor; Title.Font = THEME.Font
 Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Active = true
@@ -731,11 +731,9 @@ local afkLbl = makeLbl(LX, LW, 448, "🛡️ Ultimate Fix | PrawiraHub V56", Col
 -- ========================================================================
 local farmThread, buyThread, sellThread
 
--- STATUS LOCK UNTUK ANTI-LONCAT
-_G.IsFarmingAction = false
-
 -- ========================================================================
--- [V41.8] UNIVERSAL PROMPT TRIGGER (HP & PC)
+-- [V41.8] UNIVERSAL PROMPT TRIGGER DI-COPY MENTAH-MENTAH 
+-- (HANYA INI YANG MENGURUSI TAP DI HP & PC)
 -- ========================================================================
 local function firePromptUniversal(prompt)
     if not prompt then return end
@@ -745,7 +743,6 @@ local function firePromptUniversal(prompt)
         local key = prompt.KeyboardKeyCode
         if key and key ~= Enum.KeyCode.Unknown then
             pcall(function() VirtualInputManager:SendKeyEvent(true, key, false, game) end)
-            pcall(function() prompt:InputHoldBegin() end)
         end
     end
 end
@@ -756,43 +753,12 @@ local function stopPromptUniversal(prompt)
         local key = prompt.KeyboardKeyCode
         if key and key ~= Enum.KeyCode.Unknown then
             pcall(function() VirtualInputManager:SendKeyEvent(false, key, false, game) end)
-            pcall(function() prompt:InputHoldEnd() end)
         end
     end
 end
 
 -- ========================================================================
--- MOVEMENT LOCKER (TOTAL FREEZE)
--- ========================================================================
-local function lockMovement(hum, root)
-    if not hum or not root then return end
-    _G.IsFarmingAction = true
-    hum:MoveTo(root.Position) -- BATALKAN SEMUA PERJALANAN SEBELUMNYA
-    hum.WalkSpeed = 0
-    if hum.UseJumpPower then
-        hum.JumpPower = 0
-    else
-        hum.JumpHeight = 0
-    end
-    pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, false) end)
-    root.AssemblyLinearVelocity = Vector3.zero
-    root.AssemblyAngularVelocity = Vector3.zero
-end
-
-local function unlockMovement(hum)
-    if not hum then return end
-    _G.IsFarmingAction = false
-    hum.WalkSpeed = WalkSpeedValue
-    if hum.UseJumpPower then
-        hum.JumpPower = 50
-    else
-        hum.JumpHeight = 7.2
-    end
-    pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.Jumping, true) end)
-end
-
--- ========================================================================
--- GOD MODE
+-- GOD MODE & ANTI-FALL (TETAP SAMA SEPERTI ASLI)
 -- ========================================================================
 local GodModeConnection
 local function setGodMode(state)
@@ -878,7 +844,7 @@ local function flyTeleport(targetPos)
 end
 
 -- ========================================================================
--- RADAR & ANTI-SEROBOT POHON
+-- RADAR & ANTI-SEROBOT POHON (V56 FEATURE)
 -- ========================================================================
 local function evaluateTargetSafety(targetPos)
     local isOccupied = false
@@ -912,7 +878,6 @@ local function smartWalkTo(targetPos, timeout, acceptRadius, baseMethod, abortOn
     acceptRadius = acceptRadius or 6.0
     local lastPos = root.Position
     local stuckTimer = 0
-    _G.IsFarmingAction = false
 
     while t < timeout and AutoFarmEnabled do
         if not char.Parent or hum.Health <= 0 then break end
@@ -949,7 +914,7 @@ local function smartWalkTo(targetPos, timeout, acceptRadius, baseMethod, abortOn
         stuckTimer = stuckTimer + 0.1
         if stuckTimer >= 0.8 then 
             local moveDist = (Vector3.new(root.Position.X, 0, root.Position.Z) - Vector3.new(lastPos.X, 0, lastPos.Z)).Magnitude
-            if moveDist < 1.5 and not _G.IsFarmingAction then 
+            if moveDist < 2.0 then 
                 hum.Jump = true 
             end
             lastPos = root.Position
@@ -1062,13 +1027,14 @@ local function getTreePrompts()
     local now = tick()
     if now > nextCacheUpdate then
         cachedPrompts = {}
-        local count = 0
+        local searchCount = 0
         for _, obj in ipairs(workspace:GetDescendants()) do
             if obj:IsA("ProximityPrompt") then
                 table.insert(cachedPrompts, obj)
             end
-            count = count + 1
-            if count % 1000 == 0 then task.wait() end -- Anti Error 277 / Yield Exception
+            -- [ANTI 277 FIX] Jeda yang aman untuk CPU HP saat scan map
+            searchCount = searchCount + 1
+            if searchCount % 250 == 0 then task.wait() end 
         end
         nextCacheUpdate = tick() + 10 
     end
@@ -1097,7 +1063,7 @@ local function getTreePrompts()
 end
 
 -- ========================================================================
--- PROSES AMBIL SAWIT (V41.8 LOGIC)
+-- PROSES AMBIL SAWIT (V41.8 PURE LOGIC)
 -- ========================================================================
 local function collectMySawitTools()
     local myId = LocalPlayer.UserId
@@ -1129,22 +1095,6 @@ local function collectMySawitTools()
                         fallTimer = fallTimer + 1
                     end
 
-                    if item.Parent == workspace then
-                        for _, part in ipairs(item:GetDescendants()) do
-                            if part:IsA("BasePart") then part.Anchored = true end
-                        end
-                        AddLog("⚓ Sawit milikmu di-Anchor...")
-                        task.wait(0.1) 
-                        
-                        for _, part in ipairs(item:GetDescendants()) do
-                            if part:IsA("BasePart") then
-                                part.CanCollide = false
-                                part.Massless = true
-                            end
-                        end
-                        AddLog("👻 CanCollide dimatikan agar tubuh bisa tembus Sawit...")
-                    end
-
                     local baseMethod = FarmMethod
                     if (FarmZone == "All Zones" or FarmZone == "All Zones (2)") then
                         local distToSawit = (root.Position - primaryPart.Position).Magnitude
@@ -1170,24 +1120,21 @@ local function collectMySawitTools()
                     end
 
                     if reachedTarget then
-                        lockMovement(hum, root)
                         if actualCollectMethod == "Walk" then
                             root.CFrame = CFrame.new(primaryPart.Position, root.Position + root.CFrame.LookVector)
                         end
 
                         if prompt then
                             local oldLine = prompt.RequiresLineOfSight; local oldMax = prompt.MaxActivationDistance
-                            prompt.RequiresLineOfSight = false
-                            prompt.MaxActivationDistance = 50 
+                            prompt.RequiresLineOfSight = false; prompt.MaxActivationDistance = 50 
                             
                             if Camera then 
                                 Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, primaryPart.Position) 
                             end
                             task.wait(0.1)
                             
-                            AddLog("⚡ Mengambil sawit (Logic V41.8)...")
+                            -- [V41.8 LOGIC PURE]
                             firePromptUniversal(prompt)
-                            
                             local elapsed = 0
                             while item.Parent == workspace and elapsed < 5 do
                                 if not char.Parent or hum.Health <= 0 then break end
@@ -1195,8 +1142,6 @@ local function collectMySawitTools()
                                 if fireproximityprompt then firePromptUniversal(prompt) end
                                 if not AutoFarmEnabled then break end
                             end
-                            
-                            AddLog("✋ Proses ambil selesai (Sawit masuk tas).")
                             stopPromptUniversal(prompt)
 
                             if prompt:IsDescendantOf(workspace) then
@@ -1207,7 +1152,7 @@ local function collectMySawitTools()
                             task.wait(1)
                         end
                         
-                        unlockMovement(hum); task.wait(0.2)
+                        task.wait(0.2)
                         
                         if item.Parent ~= workspace then 
                             AddLog("✅ Berhasil memungut Sawit ke tas!")
@@ -1215,7 +1160,6 @@ local function collectMySawitTools()
                             AddLog("❌ Waktu failsafe habis, akan diulang otomatis.")
                         end
                     else
-                        unlockMovement(hum)
                         AddLog("⚠️ Tidak terjangkau, akan mengulang jalan/teleport lagi.")
                         task.wait(1)
                     end
@@ -1368,16 +1312,13 @@ local function startAutoFarm()
                         end
 
                         if reachedTarget then
-                            AddLog("📍 Tiba di titik " .. treeZoneName .. ". Mengunci postur...")
-                            lockMovement(hum, root)
                             root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
                             task.wait(0.1)
 
                             if not checkAndEquipBestTool(treeZoneName) then 
-                                unlockMovement(hum); task.wait(1); return 
+                                task.wait(1); return 
                             end
 
-                            -- V41.8 LOGIC RESTORED HERE
                             local oldLine = nearest.RequiresLineOfSight; local oldMax = nearest.MaxActivationDistance
                             nearest.RequiresLineOfSight = false; nearest.MaxActivationDistance = 50
 
@@ -1386,7 +1327,7 @@ local function startAutoFarm()
                             end
                             task.wait(0.1)
 
-                            AddLog("🪓 Memulai proses nebang (Logic V41.8)...")
+                            -- [V41.8 LOGIC PURE]
                             firePromptUniversal(nearest)
 
                             local elapsed = 0; local success = false; local startSawitCount = countMySawitTools()
@@ -1411,7 +1352,6 @@ local function startAutoFarm()
                                 
                                 local successKey = getPosKey(targetPos)
                                 ignoredPositions[successKey] = tick() + 20 
-                                unlockMovement(hum)
                                 
                                 if AutoFarmEnabled then
                                     AddLog("📦 Memaksa ambil sawit yang barusan jatuh sampai bersih...")
@@ -1426,12 +1366,11 @@ local function startAutoFarm()
                                     AddLog("⚠️ Gagal! Tidak ada Sawit yg jatuh setelah 25 Detik. Memblokir titik " .. failKey)
                                     ignoredPositions[failKey] = tick() + 60 
                                 end
-                                unlockMovement(hum); task.wait(0.5)
+                                task.wait(0.5)
                             end
                         else
                             local failKey = getPosKey(targetPos)
                             ignoredPositions[failKey] = tick() + 60 
-                            unlockMovement(hum)
                         end
                     end
                 else 
@@ -1657,10 +1596,6 @@ farmToggle.MouseButton1Click:Connect(function()
         setGodMode(false)
         setAntiFall(false)
         
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            unlockMovement(LocalPlayer.Character:FindFirstChild("Humanoid"))
-        end
-
         if not spectating then LocalPlayer.DevCameraOcclusionMode = Enum.DevCameraOcclusionMode.Zoom end
         if farmThread then task.cancel(farmThread); farmThread=nil end
         if Camera then
@@ -1779,9 +1714,6 @@ local CloseOverlay, CloseScale = createOverlay("Are you sure you want to close?"
     if farmThread then task.cancel(farmThread) end
     if buyThread  then task.cancel(buyThread)  end
     if sellThread then task.cancel(sellThread) end
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        unlockMovement(LocalPlayer.Character:FindFirstChild("Humanoid"))
-    end
     
     task.spawn(SaveConfig)
     for _,c in ipairs(scriptConnections) do if c.Connected then c:Disconnect() end end
