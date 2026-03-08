@@ -1,7 +1,7 @@
 -- ========================================================================
 --  Script  : PRAWIRA HUB - SAWIT GARDEN V56 (MOBILE TAP + DYNAMIC TELEPORT)
 --  Author  : PrawiraXLIV
---  Update  : V41.8 TAP LOGIC + VOLCANO DYNAMIC STEALTH-TO-TP
+--  Update  : V41.8 TAP LOGIC + VOLCANO DYNAMIC STEALTH-TO-TP + SYNTAX FIX
 -- ========================================================================
 
 local Players             = game:GetService("Players")
@@ -621,7 +621,7 @@ makeLbl(MX, MW, 195, "💰 AUTO SELL:", THEME.TitleColor, 12)
 local asToggle = Instance.new("TextButton", Frame)
 asToggle.Size = UDim2.new(0,MW,0,32); asToggle.Position = UDim2.new(0,MX,0,215)
 asToggle.BackgroundColor3 = THEME.BtnStop; asToggle.Text = "AUTO SELL: OFF"
-asToggle.TextColor3 = THEME.TextColor; asToggle.Font = THEME.Font; castToggle = asToggle.TextSize = 12
+asToggle.TextColor3 = THEME.TextColor; asToggle.Font = THEME.Font; asToggle.TextSize = 12
 AddStyle(asToggle, 6); applyDynamicHover(asToggle, function() return AutoSellEnabled end)
 
 makeLbl(MX, MW, 255, "Sell Interval (Secs):", THEME.TextWhite, 11)
@@ -1772,7 +1772,7 @@ end)
 
 local function ApplySavedState()
     farmToggle.BackgroundColor3 = AutoFarmEnabled    and THEME.BtnStart or THEME.BtnStop
-    farmToggle.Text             = AutoFarmEnabled    and "AUTO FARM: ON" or "AUTO FARM: OFF"
+    farmToggle.Text             = AutoFarmEnabled    and "AUTO Farm: ON" or "AUTO FARM: OFF"
     abToggle.BackgroundColor3   = AutoBuyEnabled     and THEME.BtnStart or THEME.BtnStop
     abToggle.Text               = AutoBuyEnabled     and "AUTO BUY: ON"  or "AUTO BUY: OFF"
     asToggle.BackgroundColor3   = AutoSellEnabled    and THEME.BtnStart or THEME.BtnStop
