@@ -1,12 +1,13 @@
 -- ========================================================================
---  Script  : PRAWIRA HUB - SAWIT GARDEN V56 (MOBILE TAP + ANTI 277 FINAL)
+--  Script  : PRAWIRA HUB - SAWIT GARDEN V56 (FINAL MOBILE FIX)
 --  Author  : PrawiraXLIV
---  Update  : SAFE ONE-TAP LOGIC + NO PHYSICS DESYNC + VOLCANO DYNAMIC TP
+--  Update  : PURE V41.8 TAP LOGIC + RESTORED ANCHOR/NOCLIP + ANTI 277
 -- ========================================================================
 
 local Players             = game:GetService("Players")
 local CoreGui             = game:GetService("CoreGui")
 local ReplicatedStorage   = game:GetService("ReplicatedStorage")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 local UserInputService    = game:GetService("UserInputService")
 local TweenService        = game:GetService("TweenService")
 local VirtualUser         = game:GetService("VirtualUser")
@@ -15,7 +16,6 @@ local HttpService         = game:GetService("HttpService")
 local LocalPlayer         = Players.LocalPlayer
 local Camera              = workspace.CurrentCamera
 
--- Deteksi apakah device adalah HP/Mobile
 local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
 -- ========================================================================
@@ -247,7 +247,7 @@ HdrFrame.BackgroundTransparency = 1; HdrFrame.Active = true
 
 local Title = Instance.new("TextLabel", HdrFrame)
 Title.Size = UDim2.new(1,-80,1,0); Title.BackgroundTransparency = 1
-Title.Text = "PrawiraHub - Sawit Garden V56  |  🛑 ANTI-277 SAFE INTERACT"
+Title.Text = "PrawiraHub - Sawit Garden V56  |  🛑 V41.8 TAP LOGIC + ANTI 277"
 Title.TextColor3 = THEME.TitleColor; Title.Font = THEME.Font
 Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Active = true
@@ -748,54 +748,41 @@ cpyBtn.BackgroundColor3 = Color3.fromRGB(30,80,130); cpyBtn.Text = "Copy"
 cpyBtn.TextColor3 = THEME.TextWhite; clrBtn.Font = THEME.Font; cpyBtn.TextSize = 10; AddStyle(cpyBtn,5)
 
 -- ========================================================================
-local afkLbl = makeLbl(LX, LW, 448, "🛡️ Ultimate Anti 277 | PrawiraHub V56", Color3.fromRGB(150,150,150), 10, Enum.TextXAlignment.Left)
+local afkLbl = makeLbl(LX, LW, 448, "🛡️ Ultimate Mobile Fix | PrawiraHub V56", Color3.fromRGB(150,150,150), 10, Enum.TextXAlignment.Left)
 
 -- ========================================================================
 -- CORE ENGINE: FARM, BUY, SELL
 -- ========================================================================
 local farmThread, buyThread, sellThread
+
+-- STATUS LOCK UNTUK ANTI-LONCAT
 _G.IsFarmingAction = false
 
 -- ========================================================================
--- [NEW V56.1] SAFE INTERACT (100% ANTI SPAM / ANTI 277)
+-- [V41.8] UNIVERSAL PROMPT TRIGGER (BLOKIR VIM UNTUK HP ANTI 277)
 -- ========================================================================
-local function SafeInteract(prompt)
+local function firePromptUniversal(prompt)
     if not prompt then return end
-    pcall(function()
-        local oldLine = prompt.RequiresLineOfSight
-        local oldMax = prompt.MaxActivationDistance
-        
-        prompt.RequiresLineOfSight = false
-        prompt.MaxActivationDistance = 50
-        
-        local holdTime = prompt.HoldDuration > 0 and prompt.HoldDuration or 0.1
-        task.wait(0.05)
+    if fireproximityprompt then
+        pcall(function() fireproximityprompt(prompt) end)
+    elseif not isMobile then -- JIKA MAIN DI HP, JANGAN PERNAH PANGGIL VIM
+        local key = prompt.KeyboardKeyCode
+        if key and key ~= Enum.KeyCode.Unknown then
+            pcall(function() VirtualInputManager:SendKeyEvent(true, key, false, game) end)
+        end
+    end
+end
 
-        if fireproximityprompt then
-            -- Murni execute instan dari executor yang support, tanpa loop
-            pcall(function() fireproximityprompt(prompt) end)
-            task.wait(holdTime + 0.1)
-        elseif isMobile then
-            -- Sentuhan layar untuk HP tanpa memunculkan tombol G
-            pcall(function() prompt:InputHoldBegin() end)
-            task.wait(holdTime + 0.1)
-            pcall(function() prompt:InputHoldEnd() end)
-        else
-            -- Backup untuk PC murni tanpa exploit fireproximityprompt
-            local key = prompt.KeyboardKeyCode or Enum.KeyCode.E
-            if key ~= Enum.KeyCode.Unknown then
-                pcall(function() VirtualInputManager:SendKeyEvent(true, key, false, game) end)
-                task.wait(holdTime + 0.1)
+local function stopPromptUniversal(prompt)
+    if not prompt then return end
+    if not fireproximityprompt then
+        if not isMobile then -- JIKA MAIN DI HP, JANGAN PERNAH PANGGIL VIM
+            local key = prompt.KeyboardKeyCode
+            if key and key ~= Enum.KeyCode.Unknown then
                 pcall(function() VirtualInputManager:SendKeyEvent(false, key, false, game) end)
             end
         end
-
-        -- Kembalikan kondisi awal prompt
-        if prompt and prompt.Parent then
-            prompt.RequiresLineOfSight = oldLine
-            prompt.MaxActivationDistance = oldMax
-        end
-    end)
+    end
 end
 
 -- ========================================================================
@@ -1169,7 +1156,7 @@ local function getTreePrompts()
 end
 
 -- ========================================================================
--- PROSES AMBIL SAWIT (SAFE ANTI 277)
+-- PROSES AMBIL SAWIT (LOGIKA ANCHOR + V41.8)
 -- ========================================================================
 local function collectMySawitTools()
     local myId = LocalPlayer.UserId
@@ -1199,6 +1186,23 @@ local function collectMySawitTools()
                     while item.Parent == workspace and primaryPart and math.abs(primaryPart.AssemblyLinearVelocity.Y) > 0.5 and fallTimer < 50 do
                         task.wait(0.1)
                         fallTimer = fallTimer + 1
+                    end
+
+                    -- [DIKEMBALIKAN UTUH] LOGIC ANCHOR & CANCOLLIDE SAWIT
+                    if item.Parent == workspace then
+                        for _, part in ipairs(item:GetDescendants()) do
+                            if part:IsA("BasePart") then part.Anchored = true end
+                        end
+                        AddLog("⚓ Sawit milikmu di-Anchor...")
+                        task.wait(0.1) 
+                        
+                        for _, part in ipairs(item:GetDescendants()) do
+                            if part:IsA("BasePart") then
+                                part.CanCollide = false
+                                part.Massless = true
+                            end
+                        end
+                        AddLog("👻 CanCollide dimatikan agar tubuh bisa tembus Sawit...")
                     end
 
                     local baseMethod = FarmMethod
@@ -1231,26 +1235,39 @@ local function collectMySawitTools()
                         end
 
                         if prompt then
+                            local oldLine = prompt.RequiresLineOfSight; local oldMax = prompt.MaxActivationDistance
+                            prompt.RequiresLineOfSight = false; prompt.MaxActivationDistance = 50 
+                            
                             if Camera then 
                                 Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, primaryPart.Position) 
                             end
+                            task.wait(0.1)
                             
-                            AddLog("✋ Memungut Sawit ke Tas (Tanpa Spam)...")
-                            SafeInteract(prompt)
-                            
+                            -- [DIKEMBALIKAN UTUH] LOGIKA LOOPING TAP V41.8
+                            firePromptUniversal(prompt)
                             local elapsed = 0
-                            while item.Parent == workspace and elapsed < 3 do
-                                task.wait(0.5)
-                                elapsed = elapsed + 0.5
+                            while item.Parent == workspace and elapsed < 5 do
+                                if not char.Parent or hum.Health <= 0 then break end
+                                task.wait(0.2); elapsed = elapsed + 0.2
+                                if fireproximityprompt then firePromptUniversal(prompt) end
+                                if not AutoFarmEnabled then break end
+                            end
+                            stopPromptUniversal(prompt)
+
+                            if prompt:IsDescendantOf(workspace) then
+                                prompt.RequiresLineOfSight = oldLine
+                                prompt.MaxActivationDistance = oldMax
                             end
                         else
                             task.wait(1)
                         end
                         
+                        task.wait(0.2)
+                        
                         if item.Parent ~= workspace then 
                             AddLog("✅ Berhasil memungut Sawit ke tas!")
                         else
-                            AddLog("❌ Gagal mungut/Waktu habis. Akan diulang.")
+                            AddLog("❌ Waktu failsafe habis, akan diulang otomatis.")
                         end
                     else
                         AddLog("⚠️ Tidak terjangkau, akan mengulang jalan/teleport lagi.")
@@ -1417,26 +1434,33 @@ local function startAutoFarm()
                                 task.wait(1); return 
                             end
 
+                            local oldLine = nearest.RequiresLineOfSight; local oldMax = nearest.MaxActivationDistance
+                            nearest.RequiresLineOfSight = false; nearest.MaxActivationDistance = 50
+
                             if Camera then
                                 Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, targetPos)
                             end
+                            task.wait(0.1)
 
-                            -- ANTI SPAM 277 SAFE INTERACT
-                            AddLog("🪓 Menebang Pohon (Aman Anti-Kick)...")
-                            local startSawitCount = countMySawitTools()
-                            
-                            SafeInteract(nearest)
-                            
-                            local waitDrop = 0
-                            local success = false
-                            
-                            while waitDrop < 25 and AutoFarmEnabled do
-                                if countMySawitTools() > startSawitCount then 
-                                    success = true
-                                    break 
-                                end
-                                task.wait(0.5)
-                                waitDrop = waitDrop + 0.5
+                            -- [DIKEMBALIKAN UTUH] LOGIKA LOOPING TAP V41.8
+                            AddLog("🪓 Proses Nebang (Looping Tap Murni)...")
+                            firePromptUniversal(nearest)
+
+                            local elapsed = 0; local success = false; local startSawitCount = countMySawitTools()
+
+                            while elapsed < 20 do
+                                if not char.Parent or hum.Health <= 0 then break end
+                                task.wait(0.5); elapsed = elapsed + 0.5
+                                if not AutoFarmEnabled then break end
+                                if fireproximityprompt then firePromptUniversal(nearest) end
+                                if countMySawitTools() > startSawitCount then success = true; break end
+                                if not nearest.Parent or not nearest.Parent:IsDescendantOf(workspace) then success = true; break end
+                            end
+
+                            stopPromptUniversal(nearest)
+
+                            if nearest:IsDescendantOf(workspace) then
+                                nearest.RequiresLineOfSight = oldLine; nearest.MaxActivationDistance = oldMax
                             end
                             
                             if success then
@@ -1456,7 +1480,7 @@ local function startAutoFarm()
                             else
                                 if AutoFarmEnabled then 
                                     local failKey = getPosKey(targetPos)
-                                    AddLog("⚠️ Gagal! Tidak ada Sawit yg jatuh setelah 25 Detik. Memblokir titik " .. failKey)
+                                    AddLog("⚠️ Gagal! Tidak ada Sawit yg jatuh setelah 20 Detik. Memblokir titik " .. failKey)
                                     ignoredPositions[failKey] = tick() + 60 
                                 end
                                 unlockMovement(hum)
