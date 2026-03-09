@@ -1,13 +1,12 @@
 -- ========================================================================
 --  Script  : PRAWIRA HUB - SAWIT GARDEN V56 (MOBILE TAP + ANTI 277 FINAL)
 --  Author  : PrawiraXLIV
---  Update  : INSTANT ONE-TAP LOGIC + VOLCANO DYNAMIC TP + NO SPAM REMOTES
+--  Update  : SAFE ONE-TAP LOGIC + NO PHYSICS DESYNC + VOLCANO DYNAMIC TP
 -- ========================================================================
 
 local Players             = game:GetService("Players")
 local CoreGui             = game:GetService("CoreGui")
 local ReplicatedStorage   = game:GetService("ReplicatedStorage")
-local VirtualInputManager = game:GetService("VirtualInputManager")
 local UserInputService    = game:GetService("UserInputService")
 local TweenService        = game:GetService("TweenService")
 local VirtualUser         = game:GetService("VirtualUser")
@@ -28,6 +27,9 @@ if guiParent:FindFirstChild("PrawiraHubSawit") then
 end
 local scriptConnections = {}
 
+-- ============================================================
+-- SYSTEM FOLDER BUILDER
+-- ============================================================
 local function SetupFolders()
     if makefolder then
         pcall(function()
@@ -245,7 +247,7 @@ HdrFrame.BackgroundTransparency = 1; HdrFrame.Active = true
 
 local Title = Instance.new("TextLabel", HdrFrame)
 Title.Size = UDim2.new(1,-80,1,0); Title.BackgroundTransparency = 1
-Title.Text = "PrawiraHub - Sawit Garden V56  |  🛑 ONE-TAP ANTI ERROR 277"
+Title.Text = "PrawiraHub - Sawit Garden V56  |  🛑 ANTI-277 SAFE INTERACT"
 Title.TextColor3 = THEME.TitleColor; Title.Font = THEME.Font
 Title.TextSize = 14; Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Active = true
@@ -746,7 +748,7 @@ cpyBtn.BackgroundColor3 = Color3.fromRGB(30,80,130); cpyBtn.Text = "Copy"
 cpyBtn.TextColor3 = THEME.TextWhite; clrBtn.Font = THEME.Font; cpyBtn.TextSize = 10; AddStyle(cpyBtn,5)
 
 -- ========================================================================
-local afkLbl = makeLbl(LX, LW, 448, "🛡️ Anti 277 Mobile Fix | PrawiraHub V56", Color3.fromRGB(150,150,150), 10, Enum.TextXAlignment.Left)
+local afkLbl = makeLbl(LX, LW, 448, "🛡️ Ultimate Anti 277 | PrawiraHub V56", Color3.fromRGB(150,150,150), 10, Enum.TextXAlignment.Left)
 
 -- ========================================================================
 -- CORE ENGINE: FARM, BUY, SELL
@@ -755,45 +757,44 @@ local farmThread, buyThread, sellThread
 _G.IsFarmingAction = false
 
 -- ========================================================================
--- [NEW] SAFE INTERACT (ANTI SPAM / ANTI 277)
+-- [NEW V56.1] SAFE INTERACT (100% ANTI SPAM / ANTI 277)
 -- ========================================================================
 local function SafeInteract(prompt)
     if not prompt then return end
     pcall(function()
         local oldLine = prompt.RequiresLineOfSight
         local oldMax = prompt.MaxActivationDistance
-        local oldHold = prompt.HoldDuration
-
+        
         prompt.RequiresLineOfSight = false
         prompt.MaxActivationDistance = 50
-        prompt.HoldDuration = 0 -- JADIKAN ONE-TAP INSTANT AGAR TIDAK PERLU DITAHAN LAMA
-
-        task.wait(0.05) -- Beri nafas untuk server sync
+        
+        local holdTime = prompt.HoldDuration > 0 and prompt.HoldDuration or 0.1
+        task.wait(0.05)
 
         if fireproximityprompt then
+            -- Murni execute instan dari executor yang support, tanpa loop
             pcall(function() fireproximityprompt(prompt) end)
+            task.wait(holdTime + 0.1)
         elseif isMobile then
-            -- Murni tap sentuh, tidak perlu pakai virtual keyboard G
+            -- Sentuhan layar untuk HP tanpa memunculkan tombol G
             pcall(function() prompt:InputHoldBegin() end)
-            task.wait(0.05)
+            task.wait(holdTime + 0.1)
             pcall(function() prompt:InputHoldEnd() end)
         else
+            -- Backup untuk PC murni tanpa exploit fireproximityprompt
             local key = prompt.KeyboardKeyCode or Enum.KeyCode.E
             if key ~= Enum.KeyCode.Unknown then
                 pcall(function() VirtualInputManager:SendKeyEvent(true, key, false, game) end)
-                task.wait(0.05)
+                task.wait(holdTime + 0.1)
                 pcall(function() VirtualInputManager:SendKeyEvent(false, key, false, game) end)
             end
         end
 
-        -- Kembalikan kondisi prompt ke asal agar tidak error
-        task.delay(1, function()
-            if prompt and prompt.Parent then
-                prompt.RequiresLineOfSight = oldLine
-                prompt.MaxActivationDistance = oldMax
-                prompt.HoldDuration = oldHold
-            end
-        end)
+        -- Kembalikan kondisi awal prompt
+        if prompt and prompt.Parent then
+            prompt.RequiresLineOfSight = oldLine
+            prompt.MaxActivationDistance = oldMax
+        end
     end)
 end
 
@@ -1168,7 +1169,7 @@ local function getTreePrompts()
 end
 
 -- ========================================================================
--- PROSES AMBIL SAWIT (V41.8 MOBILE SAFE)
+-- PROSES AMBIL SAWIT (SAFE ANTI 277)
 -- ========================================================================
 local function collectMySawitTools()
     local myId = LocalPlayer.UserId
@@ -1198,22 +1199,6 @@ local function collectMySawitTools()
                     while item.Parent == workspace and primaryPart and math.abs(primaryPart.AssemblyLinearVelocity.Y) > 0.5 and fallTimer < 50 do
                         task.wait(0.1)
                         fallTimer = fallTimer + 1
-                    end
-
-                    if item.Parent == workspace then
-                        for _, part in ipairs(item:GetDescendants()) do
-                            if part:IsA("BasePart") then part.Anchored = true end
-                        end
-                        AddLog("⚓ Sawit milikmu di-Anchor...")
-                        task.wait(0.1) 
-                        
-                        for _, part in ipairs(item:GetDescendants()) do
-                            if part:IsA("BasePart") then
-                                part.CanCollide = false
-                                part.Massless = true
-                            end
-                        end
-                        AddLog("👻 CanCollide dimatikan agar tubuh bisa tembus Sawit...")
                     end
 
                     local baseMethod = FarmMethod
@@ -1250,11 +1235,14 @@ local function collectMySawitTools()
                                 Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, primaryPart.Position) 
                             end
                             
-                            AddLog("✋ Mengambil Sawit (One-Tap)...")
+                            AddLog("✋ Memungut Sawit ke Tas (Tanpa Spam)...")
                             SafeInteract(prompt)
                             
-                            -- Beri jeda sebentar untuk server merespon
-                            task.wait(0.5)
+                            local elapsed = 0
+                            while item.Parent == workspace and elapsed < 3 do
+                                task.wait(0.5)
+                                elapsed = elapsed + 0.5
+                            end
                         else
                             task.wait(1)
                         end
@@ -1262,7 +1250,7 @@ local function collectMySawitTools()
                         if item.Parent ~= workspace then 
                             AddLog("✅ Berhasil memungut Sawit ke tas!")
                         else
-                            AddLog("❌ Waktu failsafe habis, akan diulang otomatis.")
+                            AddLog("❌ Gagal mungut/Waktu habis. Akan diulang.")
                         end
                     else
                         AddLog("⚠️ Tidak terjangkau, akan mengulang jalan/teleport lagi.")
@@ -1433,8 +1421,8 @@ local function startAutoFarm()
                                 Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, targetPos)
                             end
 
-                            -- PURE TAP LOGIC UNTUK MOBILE (ANTI 277)
-                            AddLog("🪓 Nebang dengan One-Tap Instan...")
+                            -- ANTI SPAM 277 SAFE INTERACT
+                            AddLog("🪓 Menebang Pohon (Aman Anti-Kick)...")
                             local startSawitCount = countMySawitTools()
                             
                             SafeInteract(nearest)
