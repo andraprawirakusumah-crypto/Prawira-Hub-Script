@@ -19,8 +19,8 @@ local LocalPlayer = Players.LocalPlayer
 -- ==========================================
 -- CONFIG & HISTORY LOGIC (AUTOSAVE)
 -- ==========================================
-local ConfigFile = "PrawiraHop_Config.json"
-local HistoryFile = "PrawiraHop_ServerHistory.json"
+local ConfigFile = "PrawiraHop_Config2.json"
+local HistoryFile = "PrawiraHop_ServerHistory2.json"
 local ServerHistory = {}
 
 local function SaveSettings()
