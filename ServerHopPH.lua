@@ -1,6 +1,6 @@
 -- ==========================================
 -- PRAWIRAHUB THEME - ULTIMATE SERVER HOP
--- (BROWSER LIST + AUTO HOP + AUTOSAVE + MINIMIZE)
+-- (BROWSER LIST + STRICT NEW PRIORITY AUTO HOP)
 -- DEFAULT: AUTO START ON, DELAY 35s
 -- ==========================================
 
@@ -9,6 +9,7 @@ local AutoStart = true
 local isHopping = false
 local hopThread = nil
 local foundAnything = ""
+local backupOldServer = nil -- Variabel untuk menyimpan cadangan server Kuning (15m+)
 
 local S_T = game:GetService("TeleportService")
 local S_H = game:GetService("HttpService")
@@ -20,8 +21,8 @@ local LocalPlayer = Players.LocalPlayer
 -- ==========================================
 -- CONFIG & HISTORY LOGIC (AUTOSAVE)
 -- ==========================================
-local ConfigFile = "PrawiraHop_Config4.json"
-local HistoryFile = "PrawiraHop_ServerHistory4.json"
+local ConfigFile = "PrawiraHop_Config6.json"
+local HistoryFile = "PrawiraHop_ServerHistory6.json"
 local ServerHistory = {}
 
 local function SaveSettings()
@@ -96,14 +97,12 @@ if targetGui:FindFirstChild("PrawiraBrowserUI") then targetGui.PrawiraBrowserUI:
 local ScreenGui = Instance.new("ScreenGui", targetGui)
 ScreenGui.Name = "PrawiraBrowserUI"; ScreenGui.ResetOnSpawn = false
 
--- Main Frame
 local MainFrame = Instance.new("Frame", ScreenGui)
 MainFrame.Size = UDim2.new(0, 420, 0, 440) 
 MainFrame.Position = UDim2.new(0.5, -210, 0.4, 0)
 MainFrame.BackgroundColor3 = THEME.MainBackground; MainFrame.BackgroundTransparency = THEME.Transparency; MainFrame.BorderSizePixel = 0
 AddStyle(MainFrame, 12); local MainScale = Instance.new("UIScale", MainFrame); MainScale.Scale = 1
 
--- Header
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, -50, 0, 40); Title.Position = UDim2.new(0, 15, 0, 5); Title.BackgroundTransparency = 1
 Title.Text = "PRAWIRAHUB - ULTIMATE SERVER HOP"; Title.TextColor3 = THEME.TitleColor; Title.Font = THEME.Font
@@ -159,8 +158,7 @@ local LegendText = Instance.new("TextLabel", MainFrame)
 LegendText.Size = UDim2.new(1, -120, 0, 20); LegendText.Position = UDim2.new(0, 15, 0, 175)
 LegendText.BackgroundTransparency = 1; LegendText.RichText = false
 LegendText.Text = "🟢 NEW | 🔴 COOLDOWN | 🟡 15m+ AGO"
-LegendText.TextColor3 = THEME.TextWhite
-LegendText.Font = Enum.Font.GothamBold; LegendText.TextSize = 10; LegendText.TextXAlignment = Enum.TextXAlignment.Left
+LegendText.TextColor3 = THEME.TextWhite; LegendText.Font = Enum.Font.GothamBold; LegendText.TextSize = 10; LegendText.TextXAlignment = Enum.TextXAlignment.Left
 
 local RefreshBtn = Instance.new("TextButton", MainFrame)
 RefreshBtn.Size = UDim2.new(0, 90, 0, 24); RefreshBtn.Position = UDim2.new(1, -105, 0, 173)
@@ -185,8 +183,7 @@ end)
 local MinCircle = Instance.new("TextButton", ScreenGui)
 MinCircle.Name = "MinimizeCircle"; MinCircle.Size = UDim2.new(0, 50, 0, 50)
 MinCircle.AnchorPoint = Vector2.new(0.5, 0.5); MinCircle.Position = UDim2.new(0.5, 0, 0.1, 0)
-MinCircle.BackgroundColor3 = THEME.MainBackground; MinCircle.Text = "PH"
-MinCircle.Font = THEME.Font; MinCircle.TextSize = 22; MinCircle.TextColor3 = THEME.TitleColor
+MinCircle.BackgroundColor3 = THEME.MainBackground; MinCircle.Text = "PH"; MinCircle.Font = THEME.Font; MinCircle.TextSize = 22; MinCircle.TextColor3 = THEME.TitleColor
 MinCircle.Visible = false; MinCircle.AutoButtonColor = false
 local circleCorner = Instance.new("UICorner", MinCircle); circleCorner.CornerRadius = UDim.new(1, 0)
 local circleStroke = Instance.new("UIStroke", MinCircle); circleStroke.Color = THEME.TitleColor; circleStroke.Thickness = 2.5; circleStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
@@ -196,7 +193,7 @@ MinCircle.MouseEnter:Connect(function() TweenService:Create(MinCircle, TweenInfo
 MinCircle.MouseLeave:Connect(function() TweenService:Create(MinCircle, TweenInfo.new(0.2), {BackgroundColor3 = THEME.MainBackground}):Play() end)
 
 -- ==========================================
--- DRAG & MINIMIZE LOGIC (ANTI-BUG)
+-- DRAG & MINIMIZE LOGIC
 -- ==========================================
 local isDraggingSlider, draggingFrame, draggingCircle = false, false, false
 local dragStartFrame, startPosFrame, dragStartCircle, startPosCircle
@@ -319,11 +316,10 @@ local function LoadServers()
                             if isHopping then
                                 isHopping = false; AutoStart = false; SaveSettings()
                                 if hopThread then task.cancel(hopThread); hopThread = nil end
-                                StartBtn.Text = "AUTO HOP STOPPED"; StartBtn.BackgroundColor3 = THEME.BtnStop
+                                StartBtn.Text = "START AUTO HOP"; StartBtn.BackgroundColor3 = THEME.BtnStart
                             end
                             JoinBtn.Text = "..."
-                            ServerHistory[sId] = os.time()
-                            SaveHistory()
+                            ServerHistory[sId] = os.time(); SaveHistory()
                             S_T:TeleportToPlaceInstance(placeId, sId, LocalPlayer)
                         end)
                     end
@@ -337,7 +333,7 @@ end
 RefreshBtn.MouseButton1Click:Connect(LoadServers)
 
 -- ==========================================
--- LOGIKA AUTO HOP (MENGABAIKAN COOLDOWN)
+-- LOGIKA AUTO HOP (STRICT NEW PRIORITY)
 -- ==========================================
 local function StopServerHop()
     isHopping = false; AutoStart = false; SaveSettings()
@@ -345,46 +341,82 @@ local function StopServerHop()
     StartBtn.Text = "START AUTO HOP"; TweenService:Create(StartBtn, TweenInfo.new(0.2), {BackgroundColor3 = THEME.BtnStart}):Play()
 end
 
-local function AutoHopLogic()
-    local placeId = game.PlaceId; local Site
-    if foundAnything == "" then
-        Site = S_H:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. placeId .. '/servers/Public?sortOrder=Asc&limit=100'))
-    else
-        Site = S_H:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. placeId .. '/servers/Public?sortOrder=Asc&limit=100&cursor=' .. foundAnything))
+local function ExecuteHop(ID)
+    ServerHistory[ID] = os.time()
+    SaveHistory()
+    
+    StartBtn.BackgroundColor3 = THEME.BtnStop
+    for d = HopDelay, 1, -1 do
+        if not isHopping then return end
+        StartBtn.Text = "AUTO HOP: " .. d .. "s (CLICK TO STOP)"
+        task.wait(1)
     end
     
-    local ID = ""
-    if Site.nextPageCursor and Site.nextPageCursor ~= "null" and Site.nextPageCursor ~= nil then foundAnything = Site.nextPageCursor end
+    if isHopping then
+        StartBtn.Text = "TELEPORTING..."
+        S_T:TeleportToPlaceInstance(game.PlaceId, ID, LocalPlayer)
+        task.wait(4)
+    end
+end
+
+local function AutoHopLogic()
+    local placeId = game.PlaceId; local Site
     
+    -- Jika mulai dari awal, reset cadangan kuning
+    if foundAnything == "" then backupOldServer = nil end
+    
+    local apiUrl = 'https://games.roblox.com/v1/games/' .. placeId .. '/servers/Public?sortOrder=Asc&limit=100'
+    if foundAnything ~= "" then apiUrl = apiUrl .. '&cursor=' .. foundAnything end
+    
+    local success, res = pcall(function() return S_H:JSONDecode(game:HttpGet(apiUrl)) end)
+    if success and res then Site = res else return end
+    
+    local newServer = nil
+    local oldServer = nil
     local currentTime = os.time()
-    for i, v in pairs(Site.data) do
-        local Possible = true
-        ID = tostring(v.id)
-        
-        if tonumber(v.maxPlayers) <= tonumber(v.playing) then Possible = false end
-        
-        if Possible then
+    
+    -- 1. SCAN SEMUA SERVER DI HALAMAN INI
+    for _, v in pairs(Site.data) do
+        local ID = tostring(v.id)
+        if tonumber(v.playing) < tonumber(v.maxPlayers) then
             local lastJoined = ServerHistory[ID]
-            if lastJoined and (currentTime - lastJoined) < 900 then
-                Possible = false 
+            
+            if not lastJoined then
+                if not newServer then newServer = ID; break end -- KETEMU NEW, LANGSUNG STOP SCAN!
+            elseif (currentTime - lastJoined) >= 900 then
+                if not oldServer then oldServer = ID end -- KETEMU KUNING, SIMPAN SEMENTARA
             end
         end
+    end
+    
+    -- 2. TENTUKAN TINDAKAN SELANJUTNYA
+    if newServer then
+        -- PRIORITAS UTAMA: Ada server Hijau (NEW)
+        foundAnything = "" 
+        backupOldServer = nil
+        ExecuteHop(newServer)
+    else
+        -- Tidak ada server Hijau di halaman ini. Simpan yang kuning (jika ada) ke cadangan global.
+        if oldServer and not backupOldServer then
+            backupOldServer = oldServer
+        end
         
-        if Possible == true and isHopping then
-            ServerHistory[ID] = os.time()
-            SaveHistory()
-            
-            StartBtn.BackgroundColor3 = THEME.BtnStop
-            for d = HopDelay, 1, -1 do
-                if not isHopping then return end
-                StartBtn.Text = "AUTO HOP: " .. d .. "s (CLICK TO STOP)"
-                task.wait(1)
-            end
-            
-            if isHopping then
-                StartBtn.Text = "TELEPORTING..."
-                S_T:TeleportToPlaceInstance(placeId, ID, LocalPlayer)
-                task.wait(4)
+        -- Cek apakah masih ada halaman selanjutnya
+        if Site.nextPageCursor and Site.nextPageCursor ~= "null" then
+            -- Lanjut membalik halaman untuk cari yang Hijau (NEW)
+            foundAnything = Site.nextPageCursor
+        else
+            -- KITA SUDAH DI HALAMAN TERAKHIR DAN TETAP TIDAK ADA YANG HIJAU.
+            if backupOldServer then
+                -- Gunakan server cadangan Kuning (15m+ AGO)
+                local target = backupOldServer
+                foundAnything = ""
+                backupOldServer = nil
+                ExecuteHop(target)
+            else
+                -- Server penuh semua / Semua merah. Ulangi pencarian dari awal.
+                foundAnything = ""
+                backupOldServer = nil
             end
         end
     end
@@ -394,16 +426,13 @@ local function StartServerHop()
     if isHopping then return end
     isHopping = true; AutoStart = true; SaveSettings()
     
-    StartBtn.Text = "SEARCHING VALID SERVER..."
+    StartBtn.Text = "SEARCHING NEW SERVER..."
     TweenService:Create(StartBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(200, 140, 0)}):Play()
     
     hopThread = task.spawn(function()
         while isHopping do
-            pcall(function()
-                AutoHopLogic()
-                if isHopping and foundAnything ~= "" then AutoHopLogic() end
-            end)
-            task.wait(1)
+            pcall(function() AutoHopLogic() end)
+            task.wait(0.5) -- Jeda agar API tidak Rate Limit saat membalik halaman
         end
     end)
 end
