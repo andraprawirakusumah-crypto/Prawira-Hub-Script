@@ -1,7 +1,7 @@
 -- ==========================================
 -- PRAWIRAHUB THEME - SERVER HOP WITH DELAY
 -- (WITH MINIMIZE, AUTOSAVE DELAY, & AUTOSTART)
--- BUG FIX: MINIMIZE BUTTON UNRESPONSIVE
+-- BUG FIX: MINIMIZE BUTTON & DRAGGING CONFLICT RESOLVED
 -- ==========================================
 
 local HopDelay = 0 
@@ -210,7 +210,7 @@ AddStyle(StartBtn, 6)
 ApplyHover(StartBtn, function() return StartBtn.BackgroundColor3 end)
 
 -- ==========================================
--- MINIMIZE LOGIC & FLOATING CIRCLE (FIXED)
+-- FLOATING MINIMIZE CIRCLE
 -- ==========================================
 local MinCircle = Instance.new("TextButton", ScreenGui)
 MinCircle.Name = "MinimizeCircle"
@@ -233,77 +233,70 @@ local MinCircleScale = Instance.new("UIScale", MinCircle); MinCircleScale.Scale 
 MinCircle.MouseEnter:Connect(function() TweenService:Create(MinCircle, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(30,40,35)}):Play() end)
 MinCircle.MouseLeave:Connect(function() TweenService:Create(MinCircle, TweenInfo.new(0.2), {BackgroundColor3 = THEME.MainBackground}):Play() end)
 
+-- ==========================================
+-- UNIFIED DRAG & CLICK LOGIC (ANTI-BUG)
+-- ==========================================
+local isDraggingSlider = false
+local draggingFrame = false
+local dragStartFrame, startPosFrame
+
+local draggingCircle = false
+local dragStartCircle, startPosCircle
+local hasMovedCircle = false
 local isAnimatingUI = false
 
--- Fungsi Saat MinBtn (—) di Klik
+-- 1. FUNGSI DRAG UNTUK LINGKARAN "PH"
+MinCircle.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        draggingCircle = true
+        hasMovedCircle = false
+        dragStartCircle = input.Position
+        startPosCircle = MinCircle.Position
+    end
+end)
+
+-- 2. FUNGSI KLIK LINGKARAN "PH" (BUKA MENU UTAMA)
+MinCircle.MouseButton1Click:Connect(function()
+    if hasMovedCircle then return end -- Abaikan klik jika habis digeser
+    if isAnimatingUI then return end
+    isAnimatingUI = true
+    
+    local t = TweenService:Create(MinCircleScale, tweenFast, {Scale=0}); t:Play()
+    t.Completed:Connect(function()
+        MinCircle.Visible = false
+        MainFrame.Visible = true
+        TweenService:Create(MainScale, tweenBounce, {Scale=1}):Play()
+        isAnimatingUI = false
+    end)
+end)
+
+-- 3. FUNGSI KLIK TOMBOL MINIMIZE (—) (TUTUP MENU UTAMA)
 MinBtn.MouseButton1Click:Connect(function()
-    if isAnimatingUI then return end; isAnimatingUI = true
+    if isAnimatingUI then return end
+    isAnimatingUI = true
+    
     local t = TweenService:Create(MainScale, tweenFast, {Scale=0}); t:Play()
     t.Completed:Connect(function()
-        MainFrame.Visible = false; MinCircle.Visible = true
+        MainFrame.Visible = false
+        MinCircle.Visible = true
         TweenService:Create(MinCircleScale, tweenBounce, {Scale=1}):Play()
         isAnimatingUI = false
     end)
 end)
 
-local draggingCircle, dragStartCircle, startPosCircle, hasMovedCircle = false, nil, nil, false
-
-MinCircle.InputBegan:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-        draggingCircle = true; hasMovedCircle = false
-        dragStartCircle = i.Position; startPosCircle = MinCircle.Position
-    end
-end)
-
-UIS.InputChanged:Connect(function(i)
-    if draggingCircle and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
-        local d = (i.Position - dragStartCircle)
-        if d.Magnitude > 5 then hasMovedCircle = true end
-        if hasMovedCircle then 
-            MinCircle.Position = UDim2.new(startPosCircle.X.Scale, startPosCircle.X.Offset + d.X, startPosCircle.Y.Scale, startPosCircle.Y.Offset + d.Y) 
-        end
-    end
-end)
-
--- FUNGSI KLIK BALIK KE MENU UTAMA (DIPERBAIKI)
-MinCircle.InputEnded:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-        draggingCircle = false
-        if not hasMovedCircle then 
-            if isAnimatingUI then return end; isAnimatingUI = true
-            local t = TweenService:Create(MinCircleScale, tweenFast, {Scale=0}); t:Play()
-            t.Completed:Connect(function()
-                MinCircle.Visible = false; MainFrame.Visible = true
-                TweenService:Create(MainScale, tweenBounce, {Scale=1}):Play()
-                isAnimatingUI = false
-            end)
-        end
-    end
-end)
-
--- ==========================================
--- LOGIKA SLIDER, AUTOSAVE, & DRAG MAIN UI
--- ==========================================
-local isDraggingSlider = false
-local draggingFrame, dragStart, startPos
-
-SliderKnob.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then isDraggingSlider = true end
-end)
-
+-- 4. FUNGSI DRAG MAIN FRAME (UI UTAMA)
 Title.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        draggingFrame = true; dragStart = input.Position; startPos = MainFrame.Position
+        draggingFrame = true
+        dragStartFrame = input.Position
+        startPosFrame = MainFrame.Position
     end
 end)
 
-UIS.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
-        if isDraggingSlider then
-            isDraggingSlider = false
-            SaveSettings() 
-        end
-        draggingFrame = false 
+-- 5. FUNGSI DRAG SLIDER
+SliderKnob.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isDraggingSlider = true
     end
 end)
 
@@ -316,19 +309,6 @@ local function UpdateSlider(percent)
     TweenService:Create(SliderKnob, TweenInfo.new(0.1), {Position = UDim2.new(percent, -8, 0.5, -8)}):Play()
 end
 
-UIS.InputChanged:Connect(function(input)
-    if isDraggingSlider and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local mousePos = input.Position.X
-        local trackPos = SliderTrack.AbsolutePosition.X
-        local trackSize = SliderTrack.AbsoluteSize.X
-        UpdateSlider((mousePos - trackPos) / trackSize)
-    end
-    if draggingFrame and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - dragStart
-        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
-
 TimeInput.FocusLost:Connect(function()
     local val = tonumber(TimeInput.Text)
     if val then
@@ -338,6 +318,47 @@ TimeInput.FocusLost:Connect(function()
         TimeInput.Text = tostring(HopDelay)
     end
     SaveSettings()
+end)
+
+-- 6. GLOBAL INPUT HANDLER (MEMPROSES SEMUA PERGERAKAN JARI/MOUSE)
+UIS.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        
+        -- Proses geser Lingkaran PH
+        if draggingCircle then
+            local delta = input.Position - dragStartCircle
+            if delta.Magnitude > 10 then -- Toleransi 10 pixel agar klik tidak terdeteksi sebagai geser
+                hasMovedCircle = true 
+                MinCircle.Position = UDim2.new(startPosCircle.X.Scale, startPosCircle.X.Offset + delta.X, startPosCircle.Y.Scale, startPosCircle.Y.Offset + delta.Y) 
+            end
+            
+        -- Proses geser UI Utama
+        elseif draggingFrame then
+            local delta = input.Position - dragStartFrame
+            MainFrame.Position = UDim2.new(startPosFrame.X.Scale, startPosFrame.X.Offset + delta.X, startPosFrame.Y.Scale, startPosFrame.Y.Offset + delta.Y)
+            
+        -- Proses geser Slider Delay
+        elseif isDraggingSlider then
+            local mousePos = input.Position.X
+            local trackPos = SliderTrack.AbsolutePosition.X
+            local trackSize = SliderTrack.AbsoluteSize.X
+            UpdateSlider((mousePos - trackPos) / trackSize)
+        end
+    end
+end)
+
+-- 7. GLOBAL INPUT END (LEPAS JARI/KLIKAN)
+UIS.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
+        if isDraggingSlider then
+            SaveSettings() -- Save nilai delay setelah geser slider
+        end
+        
+        -- Reset semua penanda sedang men-drag
+        draggingCircle = false
+        draggingFrame = false 
+        isDraggingSlider = false
+    end
 end)
 
 -- ==========================================
