@@ -1,6 +1,7 @@
 -- ==========================================
 -- PRAWIRAHUB THEME - ULTIMATE SERVER HOP
 -- (BROWSER LIST + AUTO HOP + AUTOSAVE + MINIMIZE)
+-- BUG FIX: RICHTEXT PARSER ERROR RESOLVED
 -- ==========================================
 
 local HopDelay = 0 
@@ -19,8 +20,8 @@ local LocalPlayer = Players.LocalPlayer
 -- ==========================================
 -- CONFIG & HISTORY LOGIC (AUTOSAVE)
 -- ==========================================
-local ConfigFile = "PrawiraHop_Config2.json"
-local HistoryFile = "PrawiraHop_ServerHistory2.json"
+local ConfigFile = "PrawiraHop_Config.json"
+local HistoryFile = "PrawiraHop_ServerHistory.json"
 local ServerHistory = {}
 
 local function SaveSettings()
@@ -157,7 +158,8 @@ MidLine.BackgroundColor3 = THEME.StrokeColor; MidLine.BackgroundTransparency = 0
 local LegendText = Instance.new("TextLabel", MainFrame)
 LegendText.Size = UDim2.new(1, -30, 0, 20); LegendText.Position = UDim2.new(0, 15, 0, 175)
 LegendText.BackgroundTransparency = 1; LegendText.RichText = true
-LegendText.Text = "<font color='#39FF14'>🟢 NEW</font> | <font color='#C83232'>🔴 < 15 MIN</font> | <font color='#FFC800'>🟡 > 15 MIN AGO</font>"
+-- BUG FIX: Menghilangkan tanda '<' agar sistem RichText tidak error.
+LegendText.Text = '<font color="#39FF14">🟢 NEW</font> | <font color="#C83232">🔴 UNDER 15m</font> | <font color="#FFC800">🟡 15m+ AGO</font>'
 LegendText.Font = Enum.Font.Gotham; LegendText.TextSize = 11; LegendText.TextXAlignment = Enum.TextXAlignment.Left
 
 local RefreshBtn = Instance.new("TextButton", MainFrame)
@@ -309,8 +311,6 @@ local function LoadServers()
                         JoinBtn.Size = UDim2.new(0, 70, 0, 26); JoinBtn.Position = UDim2.new(1, -80, 0.5, -13); JoinBtn.BackgroundColor3 = btnColor; JoinBtn.TextColor3 = THEME.TextWhite
                         JoinBtn.Text = "JOIN"; JoinBtn.Font = THEME.Font; JoinBtn.TextSize = 11; AddStyle(JoinBtn, 4); ApplyHover(JoinBtn, function() return btnColor end)
                         
-                        -- FUNGSI MANUAL JOIN OVERRIDE
-                        -- Bebas Join meskipun status merah (Abaikan Cooldown 15 Menit)
                         JoinBtn.MouseButton1Click:Connect(function()
                             if isHopping then
                                 isHopping = false; AutoStart = false; SaveSettings()
@@ -360,16 +360,14 @@ local function AutoHopLogic()
         
         if tonumber(v.maxPlayers) <= tonumber(v.playing) then Possible = false end
         
-        -- CEK HISTORY: Hanya cari server BARU atau LEWAT 15 Menit
         if Possible then
             local lastJoined = ServerHistory[ID]
             if lastJoined and (currentTime - lastJoined) < 900 then
-                Possible = false -- Skip server ini karena masih cooldown < 15 Menit
+                Possible = false 
             end
         end
         
         if Possible == true and isHopping then
-            -- Ketemu server yang sesuai syarat!
             ServerHistory[ID] = os.time()
             SaveHistory()
             
@@ -417,7 +415,7 @@ end)
 MainScale.Scale = 0
 TweenService:Create(MainScale, tweenBounce, {Scale = 1}):Play()
 
-LoadServers() -- Load list server manual
+LoadServers() 
 
 if AutoStart then
     StartServerHop()
