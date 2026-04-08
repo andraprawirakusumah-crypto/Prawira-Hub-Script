@@ -1,11 +1,11 @@
 -- ==========================================
 -- PRAWIRAHUB THEME - ULTIMATE SERVER HOP
 -- (BROWSER LIST + AUTO HOP + AUTOSAVE + MINIMIZE)
--- BUG FIX: RICHTEXT PARSER ERROR RESOLVED
+-- DEFAULT: AUTO START ON, DELAY 35s
 -- ==========================================
 
-local HopDelay = 0 
-local AutoStart = false 
+local HopDelay = 35 
+local AutoStart = true 
 local isHopping = false
 local hopThread = nil
 local foundAnything = ""
@@ -20,8 +20,8 @@ local LocalPlayer = Players.LocalPlayer
 -- ==========================================
 -- CONFIG & HISTORY LOGIC (AUTOSAVE)
 -- ==========================================
-local ConfigFile = "PrawiraHop_Config3.json"
-local HistoryFile = "PrawiraHop_ServerHistory3.json"
+local ConfigFile = "PrawiraHop_Config4.json"
+local HistoryFile = "PrawiraHop_ServerHistory4.json"
 local ServerHistory = {}
 
 local function SaveSettings()
@@ -156,14 +156,14 @@ MidLine.BackgroundColor3 = THEME.StrokeColor; MidLine.BackgroundTransparency = 0
 -- BAGIAN 2: SERVER BROWSER
 -- ==========================================
 local LegendText = Instance.new("TextLabel", MainFrame)
-LegendText.Size = UDim2.new(1, -30, 0, 20); LegendText.Position = UDim2.new(0, 15, 0, 175)
-LegendText.BackgroundTransparency = 1; LegendText.RichText = true
--- BUG FIX: Menghilangkan tanda '<' agar sistem RichText tidak error.
-LegendText.Text = '<font color="#39FF14">🟢 NEW</font> | <font color="#C83232">🔴 UNDER 15m</font> | <font color="#FFC800">🟡 15m+ AGO</font>'
-LegendText.Font = Enum.Font.Gotham; LegendText.TextSize = 11; LegendText.TextXAlignment = Enum.TextXAlignment.Left
+LegendText.Size = UDim2.new(1, -120, 0, 20); LegendText.Position = UDim2.new(0, 15, 0, 175)
+LegendText.BackgroundTransparency = 1; LegendText.RichText = false
+LegendText.Text = "🟢 NEW | 🔴 COOLDOWN | 🟡 15m+ AGO"
+LegendText.TextColor3 = THEME.TextWhite
+LegendText.Font = Enum.Font.GothamBold; LegendText.TextSize = 10; LegendText.TextXAlignment = Enum.TextXAlignment.Left
 
 local RefreshBtn = Instance.new("TextButton", MainFrame)
-RefreshBtn.Size = UDim2.new(0, 100, 0, 24); RefreshBtn.Position = UDim2.new(1, -115, 0, 173)
+RefreshBtn.Size = UDim2.new(0, 90, 0, 24); RefreshBtn.Position = UDim2.new(1, -105, 0, 173)
 RefreshBtn.BackgroundColor3 = Color3.fromRGB(40,100,160); RefreshBtn.TextColor3 = THEME.TextColor
 RefreshBtn.Text = "🔄 Refresh"; RefreshBtn.Font = THEME.Font; RefreshBtn.TextSize = 11
 AddStyle(RefreshBtn, 6); ApplyHover(RefreshBtn, function() return Color3.fromRGB(40,100,160) end)
@@ -174,6 +174,10 @@ ServerList.BackgroundColor3 = THEME.BoxBg; ServerList.ScrollBarThickness = 6; Se
 AddStyle(ServerList, 8)
 local UIListLayout = Instance.new("UIListLayout", ServerList); UIListLayout.Padding = UDim.new(0, 5); UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 local UIPadding = Instance.new("UIPadding", ServerList); UIPadding.PaddingTop = UDim.new(0, 5); UIPadding.PaddingLeft = UDim.new(0, 5); UIPadding.PaddingRight = UDim.new(0, 5); UIPadding.PaddingBottom = UDim.new(0, 5)
+
+UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    ServerList.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 10)
+end)
 
 -- ==========================================
 -- FLOATING MINIMIZE CIRCLE
@@ -297,18 +301,18 @@ local function LoadServers()
                         end
                         
                         local SrvFrame = Instance.new("Frame", ServerList)
-                        SrvFrame.Size = UDim2.new(1, -10, 0, 40); SrvFrame.BackgroundColor3 = THEME.SlotBg; AddStyle(SrvFrame, 6)
+                        SrvFrame.Size = UDim2.new(1, -10, 0, 45); SrvFrame.BackgroundColor3 = THEME.SlotBg; AddStyle(SrvFrame, 6)
                         
                         local InfoLbl = Instance.new("TextLabel", SrvFrame)
                         InfoLbl.Size = UDim2.new(1, -90, 0, 20); InfoLbl.Position = UDim2.new(0, 10, 0, 2); InfoLbl.BackgroundTransparency = 1
                         InfoLbl.Text = "Players: " .. sPlayers .. "/" .. sMax .. "  |  Ping: " .. sPing .. "ms"; InfoLbl.TextColor3 = THEME.TextWhite; InfoLbl.Font = Enum.Font.Gotham; InfoLbl.TextSize = 12; InfoLbl.TextXAlignment = Enum.TextXAlignment.Left
                         
                         local StatusLbl = Instance.new("TextLabel", SrvFrame)
-                        StatusLbl.Size = UDim2.new(1, -90, 0, 15); StatusLbl.Position = UDim2.new(0, 10, 0, 22); StatusLbl.BackgroundTransparency = 1
+                        StatusLbl.Size = UDim2.new(1, -90, 0, 15); StatusLbl.Position = UDim2.new(0, 10, 0, 25); StatusLbl.BackgroundTransparency = 1
                         StatusLbl.Text = "Status: " .. statusText; StatusLbl.TextColor3 = statusColor; StatusLbl.Font = Enum.Font.GothamBold; StatusLbl.TextSize = 10; StatusLbl.TextXAlignment = Enum.TextXAlignment.Left
                         
                         local JoinBtn = Instance.new("TextButton", SrvFrame)
-                        JoinBtn.Size = UDim2.new(0, 70, 0, 26); JoinBtn.Position = UDim2.new(1, -80, 0.5, -13); JoinBtn.BackgroundColor3 = btnColor; JoinBtn.TextColor3 = THEME.TextWhite
+                        JoinBtn.Size = UDim2.new(0, 70, 0, 28); JoinBtn.Position = UDim2.new(1, -80, 0.5, -14); JoinBtn.BackgroundColor3 = btnColor; JoinBtn.TextColor3 = THEME.TextWhite
                         JoinBtn.Text = "JOIN"; JoinBtn.Font = THEME.Font; JoinBtn.TextSize = 11; AddStyle(JoinBtn, 4); ApplyHover(JoinBtn, function() return btnColor end)
                         
                         JoinBtn.MouseButton1Click:Connect(function()
@@ -324,7 +328,6 @@ local function LoadServers()
                         end)
                     end
                 end
-                ServerList.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y + 10)
             end
         end
         RefreshBtn.Text = "🔄 Refresh"
