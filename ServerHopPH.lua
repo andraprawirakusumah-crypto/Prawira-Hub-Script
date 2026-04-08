@@ -1,10 +1,11 @@
 -- ==========================================
 -- PRAWIRAHUB THEME - SERVER HOP WITH DELAY
 -- (WITH MINIMIZE, AUTOSAVE DELAY, & AUTOSTART)
+-- BUG FIX: MINIMIZE BUTTON UNRESPONSIVE
 -- ==========================================
 
 local HopDelay = 0 
-local AutoStart = false -- Status mengingat Start/Stop
+local AutoStart = false 
 local isHopping = false
 local hopThread = nil
 local AllIDs = {}
@@ -43,7 +44,6 @@ local function LoadSettings()
     end
 end
 
--- Muat data saat script pertama kali jalan
 LoadSettings()
 
 -- ==========================================
@@ -207,11 +207,10 @@ StartBtn.Text = "START SERVER HOP"
 StartBtn.Font = THEME.Font
 StartBtn.TextSize = 12
 AddStyle(StartBtn, 6)
--- Dynamic hover menyesuaikan warna saat ini (Hijau/Kuning/Merah)
 ApplyHover(StartBtn, function() return StartBtn.BackgroundColor3 end)
 
 -- ==========================================
--- MINIMIZE LOGIC & FLOATING CIRCLE
+-- MINIMIZE LOGIC & FLOATING CIRCLE (FIXED)
 -- ==========================================
 local MinCircle = Instance.new("TextButton", ScreenGui)
 MinCircle.Name = "MinimizeCircle"
@@ -236,6 +235,7 @@ MinCircle.MouseLeave:Connect(function() TweenService:Create(MinCircle, TweenInfo
 
 local isAnimatingUI = false
 
+-- Fungsi Saat MinBtn (—) di Klik
 MinBtn.MouseButton1Click:Connect(function()
     if isAnimatingUI then return end; isAnimatingUI = true
     local t = TweenService:Create(MainScale, tweenFast, {Scale=0}); t:Play()
@@ -265,6 +265,22 @@ UIS.InputChanged:Connect(function(i)
     end
 end)
 
+-- FUNGSI KLIK BALIK KE MENU UTAMA (DIPERBAIKI)
+MinCircle.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        draggingCircle = false
+        if not hasMovedCircle then 
+            if isAnimatingUI then return end; isAnimatingUI = true
+            local t = TweenService:Create(MinCircleScale, tweenFast, {Scale=0}); t:Play()
+            t.Completed:Connect(function()
+                MinCircle.Visible = false; MainFrame.Visible = true
+                TweenService:Create(MainScale, tweenBounce, {Scale=1}):Play()
+                isAnimatingUI = false
+            end)
+        end
+    end
+end)
+
 -- ==========================================
 -- LOGIKA SLIDER, AUTOSAVE, & DRAG MAIN UI
 -- ==========================================
@@ -287,19 +303,7 @@ UIS.InputEnded:Connect(function(input)
             isDraggingSlider = false
             SaveSettings() 
         end
-        
         draggingFrame = false 
-        draggingCircle = false
-        
-        if not hasMovedCircle and MinCircle.Visible and not isAnimatingUI and input.Target == MinCircle then 
-            isAnimatingUI = true
-            local t = TweenService:Create(MinCircleScale, tweenFast, {Scale=0}); t:Play()
-            t.Completed:Connect(function()
-                MinCircle.Visible = false; MainFrame.Visible = true
-                TweenService:Create(MainScale, tweenBounce, {Scale=1}):Play()
-                isAnimatingUI = false
-            end)
-        end
     end
 end)
 
@@ -375,10 +379,9 @@ local function TPReturner()
                 task.wait()
                 pcall(function() writefile("server-hop-temp.json", S_H:JSONEncode(AllIDs)) end)
                 
-                -- ANIMASI TOMBOL & DELAY (DENGAN INDIKASI BISA DISTOP)
                 StartBtn.BackgroundColor3 = THEME.BtnStop
                 for d = HopDelay, 1, -1 do
-                    if not isHopping then return end -- Batalkan jika distop manual
+                    if not isHopping then return end
                     StartBtn.Text = "WAITING: " .. d .. "s (CLICK TO STOP)"
                     task.wait(1)
                 end
@@ -393,7 +396,6 @@ local function TPReturner()
     end
 end
 
--- Fungsi Menghentikan Hop
 local function StopServerHop()
     isHopping = false
     AutoStart = false
@@ -408,7 +410,6 @@ local function StopServerHop()
     TweenService:Create(StartBtn, TweenInfo.new(0.2), {BackgroundColor3 = THEME.BtnStart}):Play()
 end
 
--- Fungsi Memulai Hop
 local function StartServerHop()
     if isHopping then return end
     isHopping = true
@@ -429,7 +430,6 @@ local function StartServerHop()
     end)
 end
 
--- Tombol Start / Stop Toggle
 StartBtn.MouseButton1Click:Connect(function()
     if isHopping then
         StopServerHop()
@@ -441,11 +441,9 @@ end)
 -- ==========================================
 -- AUTO EXECUTE START CHECK
 -- ==========================================
--- Entry Animation GUI
 MainScale.Scale = 0
 TweenService:Create(MainScale, tweenBounce, {Scale = 1}):Play()
 
--- Jika posisi terakhir adalah aktif/start, maka otomatis jalan
 if AutoStart then
     StartServerHop()
 end
