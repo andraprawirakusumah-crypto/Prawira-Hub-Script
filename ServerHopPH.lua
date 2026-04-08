@@ -1,7 +1,15 @@
 -- ==========================================
 -- PRAWIRAHUB THEME - SERVER HOP WITH DELAY
--- (WITH MINIMIZE & AUTOSAVE DELAY)
+-- (WITH MINIMIZE, AUTOSAVE DELAY, & AUTOSTART)
 -- ==========================================
+
+local HopDelay = 0 
+local AutoStart = false -- Status mengingat Start/Stop
+local isHopping = false
+local hopThread = nil
+local AllIDs = {}
+local foundAnything = ""
+local actualHour = os.date("!*t").hour
 
 local S_T = game:GetService("TeleportService")
 local S_H = game:GetService("HttpService")
@@ -11,43 +19,32 @@ local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 
 -- ==========================================
--- AUTOSAVE LOGIC
+-- AUTOSAVE CONFIG LOGIC
 -- ==========================================
-local DelayFileName = "prawira-hop-delay.txt"
-local HopDelay = 0 
+local ConfigFile = "PrawiraHop_Config.json"
 
--- Fungsi untuk membaca delay yang tersimpan
-local function LoadDelay()
-    local success, result = pcall(function() return readfile(DelayFileName) end)
-    if success and result then
-        local num = tonumber(result)
-        if num then return math.clamp(num, 0, 120) end
+local function SaveSettings()
+    pcall(function()
+        local data = { 
+            SavedDelay = HopDelay,
+            IsAutoStart = AutoStart
+        }
+        writefile(ConfigFile, S_H:JSONEncode(data))
+    end)
+end
+
+local function LoadSettings()
+    local success, result = pcall(function()
+        return S_H:JSONDecode(readfile(ConfigFile))
+    end)
+    if success and type(result) == "table" then
+        if result.SavedDelay then HopDelay = math.clamp(tonumber(result.SavedDelay) or 0, 0, 120) end
+        if result.IsAutoStart ~= nil then AutoStart = result.IsAutoStart end
     end
-    return 0 -- Default jika belum ada file
 end
 
--- Fungsi untuk menyimpan delay
-local function SaveDelay(val)
-    pcall(function() writefile(DelayFileName, tostring(val)) end)
-end
-
--- Muat delay saat script pertama kali jalan
-HopDelay = LoadDelay()
-
--- ==========================================
--- SERVER HOP DATA LOGIC
--- ==========================================
-local AllIDs = {}
-local foundAnything = ""
-local actualHour = os.date("!*t").hour
-
-local File = pcall(function()
-    AllIDs = S_H:JSONDecode(readfile("server-hop-temp.json"))
-end)
-if not File then
-    table.insert(AllIDs, actualHour)
-    pcall(function() writefile("server-hop-temp.json", S_H:JSONEncode(AllIDs)) end)
-end
+-- Muat data saat script pertama kali jalan
+LoadSettings()
 
 -- ==========================================
 -- THEME & STYLING 
@@ -76,15 +73,27 @@ local function AddStyle(inst, r)
     s.Thickness = 2; s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 end
 
-local function ApplyHover(btn, base)
+local function ApplyHover(btn, getBaseColorFunc)
     local ti = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
     btn.MouseEnter:Connect(function()
-        local h,s,v = Color3.toHSV(btn.BackgroundColor3)
+        local base = getBaseColorFunc()
+        local h,s,v = Color3.toHSV(base)
         TweenService:Create(btn, ti, {BackgroundColor3=Color3.fromHSV(h,s,math.clamp(v+0.15,0,1))}):Play()
     end)
     btn.MouseLeave:Connect(function()
-        TweenService:Create(btn, ti, {BackgroundColor3=base}):Play()
+        TweenService:Create(btn, ti, {BackgroundColor3=getBaseColorFunc()}):Play()
     end)
+end
+
+-- ==========================================
+-- FILE CACHE UNTUK SERVER HOP
+-- ==========================================
+local File = pcall(function()
+    AllIDs = S_H:JSONDecode(readfile("server-hop-temp.json"))
+end)
+if not File then
+    table.insert(AllIDs, actualHour)
+    pcall(function() writefile("server-hop-temp.json", S_H:JSONEncode(AllIDs)) end)
 end
 
 -- ==========================================
@@ -137,7 +146,7 @@ MinBtn.Font = THEME.Font
 MinBtn.TextSize = 13
 MinBtn.TextColor3 = THEME.TextColor
 AddStyle(MinBtn, 6)
-ApplyHover(MinBtn, Color3.fromRGB(80,80,90))
+ApplyHover(MinBtn, function() return Color3.fromRGB(80,80,90) end)
 
 -- Separator Line
 local HdrLine = Instance.new("Frame", MainFrame)
@@ -163,28 +172,28 @@ TimeInput.Size = UDim2.new(0, 60, 0, 26)
 TimeInput.Position = UDim2.new(1, -75, 0, 57)
 TimeInput.BackgroundColor3 = THEME.SlotBg
 TimeInput.TextColor3 = THEME.TextWhite
-TimeInput.Text = tostring(HopDelay) -- Terapkan Delay yang tersimpan
+TimeInput.Text = tostring(HopDelay)
 TimeInput.Font = THEME.Font
 TimeInput.TextSize = 12
 AddStyle(TimeInput, 6)
 
 -- Slider
+local initialPercent = HopDelay / 120
+
 local SliderTrack = Instance.new("Frame", MainFrame)
 SliderTrack.Size = UDim2.new(1, -30, 0, 10)
 SliderTrack.Position = UDim2.new(0, 15, 0, 100)
 SliderTrack.BackgroundColor3 = THEME.BoxBg
 AddStyle(SliderTrack, 5)
 
-local initialPercent = HopDelay / 120 -- Hitung persen dari delay yang tersimpan
-
 local SliderFill = Instance.new("Frame", SliderTrack)
-SliderFill.Size = UDim2.new(initialPercent, 0, 1, 0) -- Terapkan posisi yang tersimpan
+SliderFill.Size = UDim2.new(initialPercent, 0, 1, 0) 
 SliderFill.BackgroundColor3 = THEME.TitleColor
 AddStyle(SliderFill, 5)
 
 local SliderKnob = Instance.new("Frame", SliderTrack)
 SliderKnob.Size = UDim2.new(0, 16, 0, 16)
-SliderKnob.Position = UDim2.new(initialPercent, -8, 0.5, -8) -- Terapkan posisi yang tersimpan
+SliderKnob.Position = UDim2.new(initialPercent, -8, 0.5, -8)
 SliderKnob.BackgroundColor3 = THEME.TextWhite
 AddStyle(SliderKnob, 8)
 
@@ -198,7 +207,8 @@ StartBtn.Text = "START SERVER HOP"
 StartBtn.Font = THEME.Font
 StartBtn.TextSize = 12
 AddStyle(StartBtn, 6)
-ApplyHover(StartBtn, THEME.BtnStart)
+-- Dynamic hover menyesuaikan warna saat ini (Hijau/Kuning/Merah)
+ApplyHover(StartBtn, function() return StartBtn.BackgroundColor3 end)
 
 -- ==========================================
 -- MINIMIZE LOGIC & FLOATING CIRCLE
@@ -255,11 +265,34 @@ UIS.InputChanged:Connect(function(i)
     end
 end)
 
-MinCircle.InputEnded:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+-- ==========================================
+-- LOGIKA SLIDER, AUTOSAVE, & DRAG MAIN UI
+-- ==========================================
+local isDraggingSlider = false
+local draggingFrame, dragStart, startPos
+
+SliderKnob.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then isDraggingSlider = true end
+end)
+
+Title.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        draggingFrame = true; dragStart = input.Position; startPos = MainFrame.Position
+    end
+end)
+
+UIS.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
+        if isDraggingSlider then
+            isDraggingSlider = false
+            SaveSettings() 
+        end
+        
+        draggingFrame = false 
         draggingCircle = false
-        if not hasMovedCircle then
-            if isAnimatingUI then return end; isAnimatingUI = true
+        
+        if not hasMovedCircle and MinCircle.Visible and not isAnimatingUI and input.Target == MinCircle then 
+            isAnimatingUI = true
             local t = TweenService:Create(MinCircleScale, tweenFast, {Scale=0}); t:Play()
             t.Completed:Connect(function()
                 MinCircle.Visible = false; MainFrame.Visible = true
@@ -270,18 +303,6 @@ MinCircle.InputEnded:Connect(function(i)
     end
 end)
 
--- ==========================================
--- LOGIKA SLIDER & DRAG MAIN UI
--- ==========================================
-local isDraggingSlider = false
-
-SliderKnob.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then isDraggingSlider = true end
-end)
-UIS.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then isDraggingSlider = false end
-end)
-
 local function UpdateSlider(percent)
     percent = math.clamp(percent, 0, 1)
     HopDelay = math.floor(percent * 120) 
@@ -289,8 +310,6 @@ local function UpdateSlider(percent)
     
     TweenService:Create(SliderFill, TweenInfo.new(0.1), {Size = UDim2.new(percent, 0, 1, 0)}):Play()
     TweenService:Create(SliderKnob, TweenInfo.new(0.1), {Position = UDim2.new(percent, -8, 0.5, -8)}):Play()
-    
-    SaveDelay(HopDelay) -- Simpan ke file setiap kali slider berubah
 end
 
 UIS.InputChanged:Connect(function(input)
@@ -300,37 +319,25 @@ UIS.InputChanged:Connect(function(input)
         local trackSize = SliderTrack.AbsoluteSize.X
         UpdateSlider((mousePos - trackPos) / trackSize)
     end
+    if draggingFrame and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
 end)
 
 TimeInput.FocusLost:Connect(function()
     local val = tonumber(TimeInput.Text)
     if val then
         HopDelay = math.clamp(val, 0, 120)
-        UpdateSlider(HopDelay / 120) -- UpdateSlider otomatis akan memanggil SaveDelay
+        UpdateSlider(HopDelay / 120)
     else
         TimeInput.Text = tostring(HopDelay)
     end
-end)
-
--- Main UI Drag
-local draggingFrame, dragStart, startPos
-Title.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        draggingFrame = true; dragStart = input.Position; startPos = MainFrame.Position
-    end
-end)
-UIS.InputChanged:Connect(function(input)
-    if draggingFrame and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - dragStart
-        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
-UIS.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then draggingFrame = false end
+    SaveSettings()
 end)
 
 -- ==========================================
--- LOGIKA SERVER HOP
+-- LOGIKA SERVER HOP (DENGAN TOGGLE & CANCEL)
 -- ==========================================
 local function TPReturner()
     local placeId = game.PlaceId 
@@ -362,44 +369,83 @@ local function TPReturner()
                 end
                 num = num + 1
             end
-            if Possible == true then
+            
+            if Possible == true and isHopping then
                 table.insert(AllIDs, ID)
                 task.wait()
                 pcall(function() writefile("server-hop-temp.json", S_H:JSONEncode(AllIDs)) end)
                 
-                -- ANIMASI TOMBOL & DELAY
+                -- ANIMASI TOMBOL & DELAY (DENGAN INDIKASI BISA DISTOP)
                 StartBtn.BackgroundColor3 = THEME.BtnStop
                 for d = HopDelay, 1, -1 do
-                    StartBtn.Text = "WAITING DELAY (" .. d .. "s)..."
+                    if not isHopping then return end -- Batalkan jika distop manual
+                    StartBtn.Text = "WAITING: " .. d .. "s (CLICK TO STOP)"
                     task.wait(1)
                 end
-                StartBtn.Text = "TELEPORTING..."
                 
-                S_T:TeleportToPlaceInstance(placeId, ID, LocalPlayer)
-                task.wait(4)
+                if isHopping then
+                    StartBtn.Text = "TELEPORTING..."
+                    S_T:TeleportToPlaceInstance(placeId, ID, LocalPlayer)
+                    task.wait(4)
+                end
             end
         end
     end
 end
 
--- Tombol Mulai Hop
-local isHopping = false
-StartBtn.MouseButton1Click:Connect(function()
+-- Fungsi Menghentikan Hop
+local function StopServerHop()
+    isHopping = false
+    AutoStart = false
+    SaveSettings()
+    
+    if hopThread then 
+        task.cancel(hopThread)
+        hopThread = nil 
+    end
+    
+    StartBtn.Text = "START SERVER HOP"
+    TweenService:Create(StartBtn, TweenInfo.new(0.2), {BackgroundColor3 = THEME.BtnStart}):Play()
+end
+
+-- Fungsi Memulai Hop
+local function StartServerHop()
     if isHopping then return end
     isHopping = true
-    StartBtn.Text = "SEARCHING SERVER..."
-    StartBtn.BackgroundColor3 = Color3.fromRGB(200, 140, 0)
+    AutoStart = true
+    SaveSettings()
     
-    task.spawn(function()
-        while task.wait(1) do
+    StartBtn.Text = "SEARCHING... (CLICK TO STOP)"
+    TweenService:Create(StartBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(200, 140, 0)}):Play()
+    
+    hopThread = task.spawn(function()
+        while isHopping do
             pcall(function()
                 TPReturner()
-                if foundAnything ~= "" then TPReturner() end
+                if isHopping and foundAnything ~= "" then TPReturner() end
             end)
+            task.wait(1)
         end
     end)
+end
+
+-- Tombol Start / Stop Toggle
+StartBtn.MouseButton1Click:Connect(function()
+    if isHopping then
+        StopServerHop()
+    else
+        StartServerHop()
+    end
 end)
 
+-- ==========================================
+-- AUTO EXECUTE START CHECK
+-- ==========================================
 -- Entry Animation GUI
 MainScale.Scale = 0
 TweenService:Create(MainScale, tweenBounce, {Scale = 1}):Play()
+
+-- Jika posisi terakhir adalah aktif/start, maka otomatis jalan
+if AutoStart then
+    StartServerHop()
+end
