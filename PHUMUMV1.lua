@@ -1,5 +1,5 @@
 -- =================================================================
--- Script  : PRAWIRA HUB - Movement & ESP Suite
+-- Script  : PRAWIRA HUB 4 - Movement, ESP & Save Instance Suite
 -- Author  : PrawiraXLIV
 -- Support : PC, HP, Tablet, Laptop, Monitor, TV (Responsive)
 -- =================================================================
@@ -13,7 +13,6 @@ local HttpService      = game:GetService("HttpService")
 local Workspace        = game:GetService("Workspace")
 local Lighting         = game:GetService("Lighting")
 local VirtualUser      = game:GetService("VirtualUser")
-local MarketplaceService = game:GetService("MarketplaceService")
 
 local LocalPlayer = Players.LocalPlayer
 local camera      = Workspace.CurrentCamera
@@ -166,12 +165,6 @@ local state = {
 }
 
 -- ============================================================
--- GLOBAL STATE
--- ============================================================
-logEnabled = false
-logLines = {}
-
--- ============================================================
 -- FLY SHORTCUT SYSTEM (PC Only)
 -- ============================================================
 flyShortcutKey = Enum.KeyCode.E     -- default shortcut key
@@ -296,7 +289,7 @@ CloseBtn.TextSize = BTN_TEXTSIZE
 corner(CloseBtn, 8)
 
 -- ============================================================
--- TAB BAR (Main Menu / Output / Save Instance)
+-- TAB BAR (Main Menu / Save Instance / Output)
 -- ============================================================
 local TabBar = Instance.new("Frame", Frame)
 TabBar.Size = UDim2.new(1, -24, 0, 30)
@@ -317,16 +310,6 @@ tabMainBtn.TextSize = 13
 tabMainBtn.LayoutOrder = 1
 corner(tabMainBtn, 8)
 
-tabOutBtn = Instance.new("TextButton", TabBar)
-tabOutBtn.Size = UDim2.new(1/3, -4, 1, 0)
-tabOutBtn.BackgroundColor3 = THEME.Slot
-tabOutBtn.Text = "📜 Output"
-tabOutBtn.TextColor3 = THEME.Text
-tabOutBtn.Font = THEME.Font
-tabOutBtn.TextSize = 13
-tabOutBtn.LayoutOrder = 2
-corner(tabOutBtn, 8)
-
 tabSaveBtn = Instance.new("TextButton", TabBar)
 tabSaveBtn.Size = UDim2.new(1/3, -4, 1, 0)
 tabSaveBtn.BackgroundColor3 = THEME.Slot
@@ -334,8 +317,18 @@ tabSaveBtn.Text = "💾 Save Instance"
 tabSaveBtn.TextColor3 = THEME.Text
 tabSaveBtn.Font = THEME.Font
 tabSaveBtn.TextSize = 13
-tabSaveBtn.LayoutOrder = 3
+tabSaveBtn.LayoutOrder = 2
 corner(tabSaveBtn, 8)
+
+tabOutBtn = Instance.new("TextButton", TabBar)
+tabOutBtn.Size = UDim2.new(1/3, -4, 1, 0)
+tabOutBtn.BackgroundColor3 = THEME.Slot
+tabOutBtn.Text = "📜 Output"
+tabOutBtn.TextColor3 = THEME.Text
+tabOutBtn.Font = THEME.Font
+tabOutBtn.TextSize = 13
+tabOutBtn.LayoutOrder = 3
+corner(tabOutBtn, 8)
 
 -- body scroll (Main Menu tab)
 Body = Instance.new("ScrollingFrame", Frame)
@@ -478,9 +471,10 @@ outClearBtn.MouseButton1Click:Connect(function()
     outputLabel.Text = "[cleared]"
 end)
 
--- (Tab Server dihapus -- fitur server-side tidak berguna di map orang lain.)
-
--- Save Instance Body (tab ke-3)
+-- ============================================================
+-- SAVE INSTANCE TAB BODY (scroll; isi card-nya dibangun di
+-- setupSaveInstanceTab() di bagian bawah script)
+-- ============================================================
 SaveBody = Instance.new("ScrollingFrame", Frame)
 SaveBody.Size = UDim2.new(1, -24, 1, -108)
 SaveBody.Position = UDim2.new(0, 12, 0, 96)
@@ -491,29 +485,33 @@ SaveBody.ScrollBarImageColor3 = THEME.Title
 SaveBody.AutomaticCanvasSize = Enum.AutomaticSize.Y
 SaveBody.CanvasSize = UDim2.new(0, 0, 0, 0)
 SaveBody.Visible = false
-local SaveBodyLayout = Instance.new("UIListLayout", SaveBody)
+SaveBodyLayout = Instance.new("UIListLayout", SaveBody)
 SaveBodyLayout.SortOrder = Enum.SortOrder.LayoutOrder
 SaveBodyLayout.Padding = UDim.new(0, 10)
-local SaveBodyPad = Instance.new("UIPadding", SaveBody)
-SaveBodyPad.PaddingTop = UDim.new(0, 6); SaveBodyPad.PaddingBottom = UDim.new(0, 8)
-SaveBodyPad.PaddingLeft = UDim.new(0, 6); SaveBodyPad.PaddingRight = UDim.new(0, 10)
+SaveBodyPad = Instance.new("UIPadding", SaveBody)
+SaveBodyPad.PaddingTop = UDim.new(0, 6)
+SaveBodyPad.PaddingBottom = UDim.new(0, 8)
+SaveBodyPad.PaddingLeft = UDim.new(0, 6)
+SaveBodyPad.PaddingRight = UDim.new(0, 10)
 
--- tab switching (Main / Output / Save Instance)
+-- (Tab Server dihapus -- fitur server-side tidak berguna di map orang lain.)
+
+-- tab switching (Main / Save Instance / Output)
 local function setTabStyle(btn, on)
     btn.BackgroundColor3 = on and THEME.Title or THEME.Slot
     btn.TextColor3 = on and Color3.new(0, 0, 0) or THEME.Text
 end
 local function showTab(which)
     Body.Visible       = (which == "main")
-    OutputBody.Visible = (which == "output")
     SaveBody.Visible   = (which == "save")
+    OutputBody.Visible = (which == "output")
     setTabStyle(tabMainBtn, which == "main")
-    setTabStyle(tabOutBtn,  which == "output")
     setTabStyle(tabSaveBtn, which == "save")
+    setTabStyle(tabOutBtn,  which == "output")
 end
 tabMainBtn.MouseButton1Click:Connect(function() showTab("main") end)
-tabOutBtn.MouseButton1Click:Connect(function() showTab("output") end)
 tabSaveBtn.MouseButton1Click:Connect(function() showTab("save") end)
+tabOutBtn.MouseButton1Click:Connect(function() showTab("output") end)
 
 -- ============================================================
 -- UI HELPERS
@@ -4206,312 +4204,319 @@ if isPC then
 end
 
 -- ============================================================
--- SAVE INSTANCE TAB — FULL UI
+-- SAVE INSTANCE TAB (gabungan fitur dari PrawiraHub 3)
+--   Urutan card (atas -> bawah): Place Info, Save Options,
+--   Quick Presets, File Name, Progress, Actions.
+--   Dibungkus function sendiri supaya local-nya tidak menumpuk
+--   di scope utama (Lua membatasi 200 local aktif per scope).
 -- ============================================================
-do
-    -- orderCounter khusus Save tab (terpisah dari Main tab)
-    local siOrder = 0
-    local function siNext() siOrder = siOrder + 1; return siOrder end
+local function setupSaveInstanceTab()
+    local MarketplaceService = game:GetService("MarketplaceService")
 
-    -- makeCard khusus save tab
-    local function siCard(titleText, accent)
-        local card = Instance.new("Frame", SaveBody)
-        card.Size = UDim2.new(1, 0, 0, 40); card.AutomaticSize = Enum.AutomaticSize.Y
-        card.BackgroundColor3 = THEME.Panel; card.BorderSizePixel = 0; card.LayoutOrder = siNext()
-        corner(card, 10); stroke(card, accent or THEME.Stroke, 1)
-        local bar = Instance.new("Frame", card)
-        bar.Size = UDim2.new(0, 4, 1, -10); bar.Position = UDim2.new(0, 0, 0, 5)
-        bar.BackgroundColor3 = accent or THEME.Title; bar.BorderSizePixel = 0; corner(bar, 4)
-        local head = Instance.new("TextLabel", card)
-        head.Size = UDim2.new(1, -28, 0, 26); head.Position = UDim2.new(0, 14, 0, 6)
-        head.BackgroundTransparency = 1; head.Text = titleText; head.TextColor3 = accent or THEME.Title
-        head.Font = THEME.Font; head.TextSize = 13; head.TextXAlignment = Enum.TextXAlignment.Left
-        local holder = Instance.new("Frame", card)
-        holder.Name = "Holder"; holder.Size = UDim2.new(1, -28, 0, 0); holder.Position = UDim2.new(0, 14, 0, 34)
-        holder.AutomaticSize = Enum.AutomaticSize.Y; holder.BackgroundTransparency = 1
-        local hl = Instance.new("UIListLayout", holder); hl.SortOrder = Enum.SortOrder.LayoutOrder; hl.Padding = UDim.new(0, 8)
-        local hp = Instance.new("UIPadding", holder); hp.PaddingBottom = UDim.new(0, 12)
-        return holder
-    end
+    local saveOptions = {
+        DecompileScripts      = false,
+        SaveWorkspace         = true,
+        SaveReplicatedStorage = true,
+        SaveReplicatedFirst   = true,
+        SaveLighting          = true,
+        SaveStarterPack       = true,
+        SaveStarterGui        = true,
+        SaveStarterPlayer     = true,
+        SavePlayers           = false,
+        NilInstances          = false,
+    }
+    local isSaving = false
 
-    local function siInfoRow(parent, label, value, accent)
+    -- row info: label kiri, value kanan (khusus tab Save Instance)
+    local function makeInfoRow(parent, label, value, accent)
         local row = Instance.new("Frame", parent)
-        row.Size = UDim2.new(1, 0, 0, 26); row.BackgroundColor3 = THEME.Slot; row.BorderSizePixel = 0
-        row.LayoutOrder = siNext(); corner(row, 6)
+        row.Size = UDim2.new(1, 0, 0, 26)
+        row.BackgroundColor3 = THEME.Slot
+        row.BorderSizePixel = 0
+        row.LayoutOrder = nextOrder()
+        corner(row, 6)
         local lbl = Instance.new("TextLabel", row)
-        lbl.Size = UDim2.new(0.4, 0, 1, 0); lbl.Position = UDim2.new(0, 10, 0, 0)
-        lbl.BackgroundTransparency = 1; lbl.Text = label; lbl.TextColor3 = THEME.SubText
-        lbl.Font = THEME.FontReg; lbl.TextSize = 11; lbl.TextXAlignment = Enum.TextXAlignment.Left
+        lbl.Size = UDim2.new(0.4, 0, 1, 0)
+        lbl.Position = UDim2.new(0, 10, 0, 0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = label
+        lbl.TextColor3 = THEME.SubText
+        lbl.Font = THEME.FontReg
+        lbl.TextSize = 11
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
         local val = Instance.new("TextLabel", row)
-        val.Size = UDim2.new(0.6, -10, 1, 0); val.Position = UDim2.new(0.4, 0, 0, 0)
-        val.BackgroundTransparency = 1; val.Text = value; val.TextColor3 = accent or THEME.Title
-        val.Font = THEME.Font; val.TextSize = 11; val.TextXAlignment = Enum.TextXAlignment.Right
+        val.Size = UDim2.new(0.6, -10, 1, 0)
+        val.Position = UDim2.new(0.4, 0, 0, 0)
+        val.BackgroundTransparency = 1
+        val.Text = value
+        val.TextColor3 = accent or THEME.Title
+        val.Font = THEME.Font
+        val.TextSize = 11
+        val.TextXAlignment = Enum.TextXAlignment.Right
         val.TextTruncate = Enum.TextTruncate.AtEnd
         return val
     end
 
-    local function siToggle(parent, label, accent, default, onChanged)
+    -- input teks: label kiri, TextBox kanan (khusus tab Save Instance)
+    local function makeTextInput(parent, label, defaultText, accent)
         local row = Instance.new("Frame", parent)
-        row.Size = UDim2.new(1, 0, 0, 34); row.BackgroundColor3 = THEME.Slot; row.BorderSizePixel = 0
-        row.LayoutOrder = siNext(); corner(row, 8)
+        row.Size = UDim2.new(1, 0, 0, 34)
+        row.BackgroundColor3 = THEME.Slot
+        row.BorderSizePixel = 0
+        row.LayoutOrder = nextOrder()
+        corner(row, 8)
         local lbl = Instance.new("TextLabel", row)
-        lbl.Size = UDim2.new(1, -80, 1, 0); lbl.Position = UDim2.new(0, 12, 0, 0)
-        lbl.BackgroundTransparency = 1; lbl.Text = label; lbl.TextColor3 = THEME.Text
-        lbl.Font = THEME.FontReg; lbl.TextSize = 13; lbl.TextXAlignment = Enum.TextXAlignment.Left
-        local btn = Instance.new("TextButton", row)
-        btn.Size = UDim2.new(0, 58, 0, 24); btn.Position = UDim2.new(1, -66, 0.5, -12)
-        btn.BackgroundColor3 = default and THEME.On or THEME.Off
-        btn.Text = default and "ON" or "OFF"
-        btn.TextColor3 = Color3.new(1, 1, 1); btn.Font = THEME.Font; btn.TextSize = 12; corner(btn, 12)
-        local isOn = default
-        local function setVisual(v)
-            isOn = v; btn.Text = v and "ON" or "OFF"
-            TweenService:Create(btn, tweenFast, {BackgroundColor3 = v and THEME.On or THEME.Off}):Play()
-        end
-        btn.MouseButton1Click:Connect(function() setVisual(not isOn); onChanged(isOn) end)
-        return setVisual, function() return isOn end
-    end
-
-    local function siButton(parent, label, bg, onClick)
-        local b = Instance.new("TextButton", parent)
-        b.Size = UDim2.new(1, 0, 0, 32); b.BackgroundColor3 = bg; b.Text = label
-        b.TextColor3 = Color3.new(1, 1, 1); b.Font = THEME.Font; b.TextSize = 12
-        b.LayoutOrder = siNext(); b.BorderSizePixel = 0; corner(b, 8)
-        b.MouseButton1Click:Connect(onClick); return b
-    end
-
-    -- ── STATE ──
-    local siSaveOptions = {
-        DecompileScripts    = false,
-        SaveWorkspace       = true,
-        SaveReplicatedStorage = true,
-        SaveReplicatedFirst = true,
-        SaveLighting        = true,
-        SaveStarterPack     = true,
-        SaveStarterGui      = true,
-        SaveStarterPlayer   = true,
-        SavePlayers         = false,
-        NilInstances        = false,
-    }
-    local siIsSaving = false
-    local siToggleRefs = {} -- key -> setVisual function untuk Quick Presets
-
-    -- ── GAME INFO ──
-    local siGameName = "Unknown"
-    pcall(function() siGameName = MarketplaceService:GetProductInfo(game.PlaceId).Name or "Unknown" end)
-    local siPlaceId = tostring(game.PlaceId)
-    local siDefaultFileName = siGameName:gsub("[^%w%s%-_]", ""):gsub("%s+", "_"):sub(1, 40) .. ".rbxlx"
-
-    -- ════════════════════════════════════════
-    -- CARD 1: PLACE INFO
-    -- ════════════════════════════════════════
-    local infoHolder = siCard("📍 PLACE INFO", THEME.Cyan)
-    siInfoRow(infoHolder, "Game", siGameName, THEME.Title)
-    siInfoRow(infoHolder, "Place ID", siPlaceId, THEME.Cyan)
-    siInfoRow(infoHolder, "Job ID", game.JobId:sub(1, 18) .. "...", THEME.SubText)
-    local siExecutorName = "Unknown"
-    pcall(function()
-        if identifyexecutor then siExecutorName = identifyexecutor()
-        elseif getexecutorname then siExecutorName = getexecutorname() end
-    end)
-    siInfoRow(infoHolder, "Executor", siExecutorName, THEME.Purple)
-    local siHasSave = (saveinstance ~= nil)
-    siInfoRow(infoHolder, "saveinstance", siHasSave and "✅ Supported" or "❌ Not Found", siHasSave and THEME.On or THEME.Red)
-
-    -- ════════════════════════════════════════
-    -- CARD 2: SAVE OPTIONS
-    -- ════════════════════════════════════════
-    local optHolder = siCard("⚙️ SAVE OPTIONS", THEME.Purple)
-
-    local siToggleData = {
-        {"DecompileScripts",      "Decompile Scripts",           THEME.Orange, false},
-        {"SaveWorkspace",         "Workspace (Map & Models)",    THEME.Cyan,   true},
-        {"SaveReplicatedStorage", "ReplicatedStorage",           THEME.Blue,   true},
-        {"SaveReplicatedFirst",   "ReplicatedFirst",             THEME.Blue,   true},
-        {"SaveLighting",          "Lighting & Effects",          THEME.Yellow, true},
-        {"SaveStarterPack",       "StarterPack (Tools)",         THEME.On,     true},
-        {"SaveStarterGui",        "StarterGui (UI)",             THEME.Pink,   true},
-        {"SaveStarterPlayer",     "StarterPlayer",               THEME.Purple, true},
-        {"SavePlayers",           "Players Folder",              THEME.Red,    false},
-        {"NilInstances",          "Nil Instances",               THEME.Red,    false},
-    }
-
-    for _, data in ipairs(siToggleData) do
-        local key, label, accent, default = data[1], data[2], data[3], data[4]
-        local setVis = siToggle(optHolder, label, accent, default, function(on)
-            siSaveOptions[key] = on
+        lbl.Size = UDim2.new(0.35, 0, 1, 0)
+        lbl.Position = UDim2.new(0, 12, 0, 0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = label
+        lbl.TextColor3 = THEME.Text
+        lbl.Font = THEME.FontReg
+        lbl.TextSize = 12
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+        local box = Instance.new("TextBox", row)
+        box.Size = UDim2.new(0.6, -10, 0, 24)
+        box.Position = UDim2.new(0.4, 0, 0.5, -12)
+        box.BackgroundColor3 = Color3.fromRGB(15, 15, 22)
+        box.BackgroundTransparency = 0.15
+        box.Text = defaultText
+        box.PlaceholderText = "filename.rbxlx"
+        box.TextColor3 = accent or THEME.Title
+        box.Font = THEME.Font
+        box.TextSize = 11
+        box.TextXAlignment = Enum.TextXAlignment.Center
+        box.ClearTextOnFocus = false
+        corner(box, 6)
+        local boxStroke = stroke(box, THEME.Stroke, 1)
+        box.Focused:Connect(function()
+            TweenService:Create(boxStroke, tweenFast, {Color = accent or THEME.Title}):Play()
         end)
-        siToggleRefs[key] = setVis
+        box.FocusLost:Connect(function()
+            TweenService:Create(boxStroke, tweenFast, {Color = THEME.Stroke}):Play()
+        end)
+        return box
     end
 
-    -- ════════════════════════════════════════
-    -- CARD 3: QUICK PRESETS
-    -- ════════════════════════════════════════
-    local presetHolder = siCard("⚡ QUICK PRESETS", THEME.Orange)
+    -- info place / nama file default
+    local gameName = "Unknown"
+    pcall(function()
+        gameName = MarketplaceService:GetProductInfo(game.PlaceId).Name or "Unknown"
+    end)
+    local placeId = tostring(game.PlaceId)
+    local baseName = gameName:gsub("[^%w%s%-_]", ""):gsub("%s+", "_"):sub(1, 40)
+    if baseName == "" then baseName = "Place_" .. placeId end
+    local defaultFileName = baseName .. ".rbxlx"
 
-    -- Helper: set semua options + update toggle visuals
-    local function applyPreset(preset)
-        for key, val in pairs(preset) do
-            siSaveOptions[key] = val
-            if siToggleRefs[key] then
-                siToggleRefs[key](val)
-            end
+    -- ---------- CARD 1: PLACE INFO ----------
+    local infoCard = makeCard("📍 PLACE INFO", THEME.Cyan, SaveBody)
+    makeInfoRow(infoCard, "Game", gameName, THEME.Title)
+    makeInfoRow(infoCard, "Place ID", placeId, THEME.Cyan)
+    makeInfoRow(infoCard, "Job ID", (game.JobId ~= "" and game.JobId:sub(1, 18) .. "..." or "-"), THEME.SubText)
+    local executorName = "Unknown"
+    pcall(function()
+        if identifyexecutor then executorName = identifyexecutor()
+        elseif getexecutorname then executorName = getexecutorname() end
+    end)
+    makeInfoRow(infoCard, "Executor", executorName, THEME.Purple)
+    local hasSaveInstance = (saveinstance ~= nil)
+    makeInfoRow(infoCard, "saveinstance", hasSaveInstance and "✅ Supported" or "❌ Not Found",
+        hasSaveInstance and THEME.On or THEME.Red)
+
+    -- ---------- CARD 2: SAVE OPTIONS ----------
+    local optCard = makeCard("⚙️ SAVE OPTIONS", THEME.Purple, SaveBody)
+    local toggleOrder = {
+        {"DecompileScripts",      "Decompile Scripts",        THEME.Orange},
+        {"SaveWorkspace",         "Workspace (Map & Models)", THEME.Cyan},
+        {"SaveReplicatedStorage", "ReplicatedStorage",        THEME.Blue},
+        {"SaveReplicatedFirst",   "ReplicatedFirst",          THEME.Blue},
+        {"SaveLighting",          "Lighting & Effects",       THEME.Yellow},
+        {"SaveStarterPack",       "StarterPack (Tools)",      THEME.On},
+        {"SaveStarterGui",        "StarterGui (UI)",          THEME.Pink},
+        {"SaveStarterPlayer",     "StarterPlayer",            THEME.Purple},
+        {"SavePlayers",           "Players Folder",           THEME.Red},
+        {"NilInstances",          "Nil Instances",            THEME.Red},
+    }
+    local toggleSetters = {}
+    for _, data in ipairs(toggleOrder) do
+        local key, label, accent = data[1], data[2], data[3]
+        local setVis = makeToggle(optCard, label, accent, function(on)
+            saveOptions[key] = on
+        end)
+        toggleSetters[key] = setVis
+        if saveOptions[key] then setVis(true) end
+    end
+
+    -- samakan visual SEMUA toggle Save Options dengan tabel saveOptions.
+    -- Dipanggil setiap Quick Preset diklik, jadi tombol ON/OFF ikut
+    -- berubah otomatis mengikuti preset yang dipilih.
+    local function syncToggleVisuals()
+        for key, setVis in pairs(toggleSetters) do
+            setVis(saveOptions[key] == true)
         end
     end
 
-    siButton(presetHolder, "🔥 Full Save (All ON)", THEME.On, function()
-        applyPreset({
-            DecompileScripts = true, SaveWorkspace = true, SaveReplicatedStorage = true,
-            SaveReplicatedFirst = true, SaveLighting = true, SaveStarterPack = true,
-            SaveStarterGui = true, SaveStarterPlayer = true, SavePlayers = true, NilInstances = true,
-        })
-        notify("✅ Semua opsi ON!", THEME.On)
+    -- ---------- CARD 3: QUICK PRESETS ----------
+    local presetCard = makeCard("⚡ QUICK PRESETS", THEME.Orange, SaveBody)
+    makeButton(presetCard, "🔥 Full Save (All ON)", THEME.On, function()
+        for key in pairs(saveOptions) do saveOptions[key] = true end
+        syncToggleVisuals()
+        notify("✅ Semua opsi diaktifkan! Tekan SAVE FULL.", THEME.On)
     end)
-
-    siButton(presetHolder, "🗺 Map Only (Workspace + Lighting)", THEME.Blue, function()
-        applyPreset({
-            DecompileScripts = false, SaveWorkspace = true, SaveReplicatedStorage = false,
-            SaveReplicatedFirst = false, SaveLighting = true, SaveStarterPack = false,
-            SaveStarterGui = false, SaveStarterPlayer = false, SavePlayers = false, NilInstances = false,
-        })
-        notify("✅ Preset Map Only aktif!", THEME.Blue)
+    makeButton(presetCard, "🗺 Map Only (Workspace + Lighting)", THEME.Blue, function()
+        for key in pairs(saveOptions) do saveOptions[key] = false end
+        saveOptions.SaveWorkspace = true
+        saveOptions.SaveLighting  = true
+        syncToggleVisuals()
+        notify("✅ Preset Map Only aktif! Tekan SAVE FULL.", THEME.Blue)
     end)
-
-    siButton(presetHolder, "📜 Scripts Focus (Decompile + RS + RF)", THEME.Orange, function()
-        applyPreset({
-            DecompileScripts = true, SaveWorkspace = true, SaveReplicatedStorage = true,
-            SaveReplicatedFirst = true, SaveLighting = false, SaveStarterPack = false,
-            SaveStarterGui = false, SaveStarterPlayer = false, SavePlayers = false, NilInstances = false,
-        })
-        notify("✅ Preset Scripts Focus aktif!", THEME.Orange)
+    makeButton(presetCard, "📜 Scripts Focus (Decompile + RS + RF)", THEME.Orange, function()
+        for key in pairs(saveOptions) do saveOptions[key] = false end
+        saveOptions.DecompileScripts      = true
+        saveOptions.SaveReplicatedStorage = true
+        saveOptions.SaveReplicatedFirst   = true
+        saveOptions.SaveWorkspace         = true
+        syncToggleVisuals()
+        notify("✅ Preset Scripts Focus aktif! Tekan SAVE FULL.", THEME.Orange)
     end)
-
-    siButton(presetHolder, "🧹 Reset (Default)", THEME.SubText, function()
-        applyPreset({
-            DecompileScripts = false, SaveWorkspace = true, SaveReplicatedStorage = true,
-            SaveReplicatedFirst = true, SaveLighting = true, SaveStarterPack = true,
-            SaveStarterGui = true, SaveStarterPlayer = true, SavePlayers = false, NilInstances = false,
-        })
+    makeButton(presetCard, "🧹 Reset (Default)", THEME.SubText, function()
+        saveOptions.DecompileScripts      = false
+        saveOptions.SaveWorkspace         = true
+        saveOptions.SaveReplicatedStorage = true
+        saveOptions.SaveReplicatedFirst   = true
+        saveOptions.SaveLighting          = true
+        saveOptions.SaveStarterPack       = true
+        saveOptions.SaveStarterGui        = true
+        saveOptions.SaveStarterPlayer     = true
+        saveOptions.SavePlayers           = false
+        saveOptions.NilInstances          = false
+        syncToggleVisuals()
         notify("🔄 Options direset ke default.", THEME.SubText)
     end)
 
-    -- ════════════════════════════════════════
-    -- CARD 4: FILE NAME
-    -- ════════════════════════════════════════
-    local fileHolder = siCard("📁 FILE NAME", THEME.Yellow)
+    -- ---------- CARD 4: FILE NAME ----------
+    local fileCard = makeCard("📁 FILE NAME", THEME.Yellow, SaveBody)
+    local fileInput = makeTextInput(fileCard, "File Name", defaultFileName, THEME.Yellow)
 
-    -- Text input row
-    local siFileRow = Instance.new("Frame", fileHolder)
-    siFileRow.Size = UDim2.new(1, 0, 0, 34); siFileRow.BackgroundColor3 = THEME.Slot; siFileRow.BorderSizePixel = 0
-    siFileRow.LayoutOrder = siNext(); corner(siFileRow, 8)
-    local siFileLbl = Instance.new("TextLabel", siFileRow)
-    siFileLbl.Size = UDim2.new(0.3, 0, 1, 0); siFileLbl.Position = UDim2.new(0, 12, 0, 0)
-    siFileLbl.BackgroundTransparency = 1; siFileLbl.Text = "File Name"; siFileLbl.TextColor3 = THEME.Text
-    siFileLbl.Font = THEME.FontReg; siFileLbl.TextSize = 12; siFileLbl.TextXAlignment = Enum.TextXAlignment.Left
-    local siFileInput = Instance.new("TextBox", siFileRow)
-    siFileInput.Size = UDim2.new(0.65, -10, 0, 24); siFileInput.Position = UDim2.new(0.35, 0, 0.5, -12)
-    siFileInput.BackgroundColor3 = Color3.fromRGB(15, 15, 22); siFileInput.BackgroundTransparency = 0.15
-    siFileInput.Text = siDefaultFileName; siFileInput.PlaceholderText = "filename.rbxlx"
-    siFileInput.TextColor3 = THEME.Yellow; siFileInput.Font = THEME.Font; siFileInput.TextSize = 11
-    siFileInput.TextXAlignment = Enum.TextXAlignment.Center; siFileInput.ClearTextOnFocus = false
-    corner(siFileInput, 6); stroke(siFileInput, THEME.Stroke, 1)
-    siFileInput.Focused:Connect(function()
-        TweenService:Create(siFileInput:FindFirstChildOfClass("UIStroke"), tweenFast, {Color = THEME.Yellow}):Play()
-    end)
-    siFileInput.FocusLost:Connect(function()
-        TweenService:Create(siFileInput:FindFirstChildOfClass("UIStroke"), tweenFast, {Color = THEME.Stroke}):Play()
-    end)
+    local formatRow = Instance.new("Frame", fileCard)
+    formatRow.Size = UDim2.new(1, 0, 0, 30)
+    formatRow.BackgroundTransparency = 1
+    formatRow.LayoutOrder = nextOrder()
+    local frl = Instance.new("UIListLayout", formatRow)
+    frl.FillDirection = Enum.FillDirection.Horizontal
+    frl.Padding = UDim.new(0, 6)
+    frl.SortOrder = Enum.SortOrder.LayoutOrder
 
-    -- Format selector (.rbxlx / .rbxl)
-    local siSelectedFormat = ".rbxlx"
-    local siFmtRow = Instance.new("Frame", fileHolder)
-    siFmtRow.Size = UDim2.new(1, 0, 0, 30); siFmtRow.BackgroundTransparency = 1
-    siFmtRow.LayoutOrder = siNext()
-    local siFrl = Instance.new("UIListLayout", siFmtRow)
-    siFrl.FillDirection = Enum.FillDirection.Horizontal; siFrl.Padding = UDim.new(0, 6); siFrl.SortOrder = Enum.SortOrder.LayoutOrder
-
-    local siFmtBtns = {}
-    local function updateFmtBtns()
-        for fmt, btn in pairs(siFmtBtns) do
-            if fmt == siSelectedFormat then
-                TweenService:Create(btn, tweenFast, {BackgroundColor3 = THEME.Title}):Play(); btn.TextColor3 = Color3.new(0, 0, 0)
+    local selectedFormat = ".rbxlx"
+    local formatButtons = {}
+    local function updateFormatBtns()
+        for fmt, btn in pairs(formatButtons) do
+            if fmt == selectedFormat then
+                TweenService:Create(btn, tweenFast, {BackgroundColor3 = THEME.Title}):Play()
+                btn.TextColor3 = Color3.new(0, 0, 0)
             else
-                TweenService:Create(btn, tweenFast, {BackgroundColor3 = THEME.Slot}):Play(); btn.TextColor3 = THEME.Text
+                TweenService:Create(btn, tweenFast, {BackgroundColor3 = THEME.Slot}):Play()
+                btn.TextColor3 = THEME.Text
             end
         end
-        local text = siFileInput.Text:gsub("%.rbxlx$", ""):gsub("%.rbxl$", "")
-        siFileInput.Text = text .. siSelectedFormat
+        -- ganti extension di kotak file name mengikuti format terpilih
+        local text = fileInput.Text:gsub("%.rbxlx$", ""):gsub("%.rbxl$", "")
+        fileInput.Text = text .. selectedFormat
     end
     for i, fmt in ipairs({".rbxlx", ".rbxl"}) do
-        local fb = Instance.new("TextButton", siFmtRow)
-        fb.Size = UDim2.new(0.5, -3, 1, 0); fb.BackgroundColor3 = (fmt == siSelectedFormat) and THEME.Title or THEME.Slot
-        fb.Text = fmt; fb.TextColor3 = (fmt == siSelectedFormat) and Color3.new(0, 0, 0) or THEME.Text
-        fb.Font = THEME.Font; fb.TextSize = 12; fb.LayoutOrder = i; corner(fb, 6)
-        siFmtBtns[fmt] = fb
-        fb.MouseButton1Click:Connect(function() siSelectedFormat = fmt; updateFmtBtns() end)
+        local fb = Instance.new("TextButton", formatRow)
+        fb.Size = UDim2.new(0.5, -3, 1, 0)
+        fb.BackgroundColor3 = (fmt == selectedFormat) and THEME.Title or THEME.Slot
+        fb.Text = fmt
+        fb.TextColor3 = (fmt == selectedFormat) and Color3.new(0, 0, 0) or THEME.Text
+        fb.Font = THEME.Font
+        fb.TextSize = 12
+        fb.LayoutOrder = i
+        corner(fb, 6)
+        formatButtons[fmt] = fb
+        fb.MouseButton1Click:Connect(function()
+            selectedFormat = fmt
+            updateFormatBtns()
+        end)
     end
 
-    -- ════════════════════════════════════════
-    -- CARD 5: PROGRESS
-    -- ════════════════════════════════════════
-    local progHolder = siCard("📊 PROGRESS", THEME.On)
+    -- ---------- CARD 5: PROGRESS ----------
+    local progCard = makeCard("📊 PROGRESS", THEME.On, SaveBody)
+    local statusLabel = Instance.new("TextLabel", progCard)
+    statusLabel.Size = UDim2.new(1, 0, 0, 22)
+    statusLabel.BackgroundTransparency = 1
+    statusLabel.Text = "⏸ Ready"
+    statusLabel.TextColor3 = THEME.SubText
+    statusLabel.Font = THEME.Font
+    statusLabel.TextSize = 12
+    statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+    statusLabel.LayoutOrder = nextOrder()
 
-    local siStatusLabel = Instance.new("TextLabel", progHolder)
-    siStatusLabel.Size = UDim2.new(1, 0, 0, 22); siStatusLabel.BackgroundTransparency = 1
-    siStatusLabel.Text = "⏸ Ready"; siStatusLabel.TextColor3 = THEME.SubText
-    siStatusLabel.Font = THEME.Font; siStatusLabel.TextSize = 12; siStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
-    siStatusLabel.LayoutOrder = siNext()
+    local progBarBg = Instance.new("Frame", progCard)
+    progBarBg.Size = UDim2.new(1, 0, 0, 10)
+    progBarBg.BackgroundColor3 = THEME.Slot
+    progBarBg.BorderSizePixel = 0
+    progBarBg.LayoutOrder = nextOrder()
+    corner(progBarBg, 5)
+    local progBarFill = Instance.new("Frame", progBarBg)
+    progBarFill.Size = UDim2.new(0, 0, 1, 0)
+    progBarFill.BackgroundColor3 = THEME.On
+    progBarFill.BorderSizePixel = 0
+    corner(progBarFill, 5)
+    gradient(progBarFill, THEME.Cyan, THEME.On, 0)
 
-    local siProgBarBg = Instance.new("Frame", progHolder)
-    siProgBarBg.Size = UDim2.new(1, 0, 0, 10); siProgBarBg.BackgroundColor3 = THEME.Slot; siProgBarBg.BorderSizePixel = 0
-    siProgBarBg.LayoutOrder = siNext(); corner(siProgBarBg, 5)
-
-    local siProgBarFill = Instance.new("Frame", siProgBarBg)
-    siProgBarFill.Size = UDim2.new(0, 0, 1, 0); siProgBarFill.BackgroundColor3 = THEME.On; siProgBarFill.BorderSizePixel = 0
-    corner(siProgBarFill, 5); gradient(siProgBarFill, THEME.Cyan, THEME.On, 0)
-
-    -- ════════════════════════════════════════
-    -- CARD 6: ACTIONS
-    -- ════════════════════════════════════════
-    local actHolder = siCard("🚀 ACTIONS", THEME.Title)
-
-    -- ── SAVE LOGIC ──
-    local function siBuildOptions(workspaceOnly)
+    -- ---------- SAVE LOGIC ----------
+    local function buildSaveOptions(workspaceOnly)
         local opts = {}
-        local fileName = siFileInput.Text
-        if fileName == "" then fileName = siDefaultFileName end
+        local fileName = fileInput.Text
+        if fileName == "" then fileName = defaultFileName end
         if not fileName:match("%.rbxlx$") and not fileName:match("%.rbxl$") then
-            fileName = fileName .. siSelectedFormat
+            fileName = fileName .. selectedFormat
         end
         opts.FileName = fileName
-        opts.DecompileMode = siSaveOptions.DecompileScripts and "full" or "none"
-        opts.NilInstances = siSaveOptions.NilInstances
+        opts.DecompileMode = saveOptions.DecompileScripts and "full" or "none"
+        opts.NilInstances = saveOptions.NilInstances
         if workspaceOnly then
-            opts.ExtraInstances = {game:GetService("Workspace")}; opts.Isolated = true
+            opts.ExtraInstances = {game:GetService("Workspace")}
+            opts.Isolated = true
         else
             local extras = {}
-            local svcMap = {
-                SaveWorkspace = "Workspace", SaveReplicatedStorage = "ReplicatedStorage",
-                SaveReplicatedFirst = "ReplicatedFirst", SaveLighting = "Lighting",
-                SaveStarterPack = "StarterPack", SaveStarterGui = "StarterGui",
-                SaveStarterPlayer = "StarterPlayer", SavePlayers = "Players",
+            local serviceMap = {
+                SaveWorkspace         = "Workspace",
+                SaveReplicatedStorage = "ReplicatedStorage",
+                SaveReplicatedFirst   = "ReplicatedFirst",
+                SaveLighting          = "Lighting",
+                SaveStarterPack       = "StarterPack",
+                SaveStarterGui        = "StarterGui",
+                SaveStarterPlayer     = "StarterPlayer",
+                SavePlayers           = "Players",
             }
-            for key, svc in pairs(svcMap) do
-                if siSaveOptions[key] then pcall(function() table.insert(extras, game:GetService(svc)) end) end
+            for key, svc in pairs(serviceMap) do
+                if saveOptions[key] then
+                    pcall(function() table.insert(extras, game:GetService(svc)) end)
+                end
             end
             if #extras > 0 then opts.ExtraInstances = extras end
         end
         return opts
     end
 
-    local function siDoSave(workspaceOnly)
-        if siIsSaving then notify("⚠ Masih proses saving, tunggu...", THEME.Yellow); return end
-        if not saveinstance then notify("❌ Executor tidak support saveinstance!", THEME.Red); return end
-        siIsSaving = true
-        siStatusLabel.Text = "⏳ Preparing..."; siStatusLabel.TextColor3 = THEME.Yellow
-        siProgBarFill.Size = UDim2.new(0, 0, 1, 0)
+    local function doSave(workspaceOnly)
+        if isSaving then
+            notify("⚠ Masih proses saving, tunggu...", THEME.Yellow)
+            return
+        end
+        if not saveinstance then
+            notify("❌ Executor tidak support saveinstance!", THEME.Red)
+            return
+        end
+
+        isSaving = true
+        statusLabel.Text = "⏳ Preparing..."
+        statusLabel.TextColor3 = THEME.Yellow
+        progBarFill.Size = UDim2.new(0, 0, 1, 0)
         notify("🚀 Mulai save instance...", THEME.Cyan)
-        -- Animated progress
+
+        -- animasi progress (perkiraan; saveinstance tidak melapor progres asli)
         task.spawn(function()
             local steps = {
                 {pct = 0.15, text = "⏳ Collecting instances..."},
@@ -4521,55 +4526,78 @@ do
                 {pct = 0.90, text = "⏳ Finalizing..."},
             }
             for _, step in ipairs(steps) do
-                if not siIsSaving then break end
-                siStatusLabel.Text = step.text
-                TweenService:Create(siProgBarFill, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {Size = UDim2.new(step.pct, 0, 1, 0)}):Play()
+                if not isSaving then break end
+                statusLabel.Text = step.text
+                TweenService:Create(progBarFill, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {Size = UDim2.new(step.pct, 0, 1, 0)}):Play()
                 task.wait(1)
             end
         end)
-        -- Execute
+
+        -- eksekusi save di thread terpisah supaya GUI tidak nge-freeze
         task.spawn(function()
             local success, err = pcall(function()
-                saveinstance(siBuildOptions(workspaceOnly))
+                saveinstance(buildSaveOptions(workspaceOnly))
             end)
-            siIsSaving = false
+
+            isSaving = false
+
             if success then
-                TweenService:Create(siProgBarFill, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 1, 0)}):Play()
-                siStatusLabel.Text = "✅ Berhasil disimpan!"; siStatusLabel.TextColor3 = THEME.On
+                TweenService:Create(progBarFill, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 1, 0)}):Play()
+                statusLabel.Text = "✅ Berhasil disimpan!"
+                statusLabel.TextColor3 = THEME.On
                 notify("✅ Place berhasil disimpan! Cek folder workspace.", THEME.On)
             else
-                siStatusLabel.Text = "❌ Error: " .. tostring(err):sub(1, 60); siStatusLabel.TextColor3 = THEME.Red
+                statusLabel.Text = "❌ Error: " .. tostring(err):sub(1, 60)
+                statusLabel.TextColor3 = THEME.Red
                 notify("❌ Gagal: " .. tostring(err):sub(1, 40), THEME.Red)
             end
+
             task.wait(5)
-            if not siIsSaving then
-                siStatusLabel.Text = "⏸ Ready"; siStatusLabel.TextColor3 = THEME.SubText
-                TweenService:Create(siProgBarFill, TweenInfo.new(0.5), {Size = UDim2.new(0, 0, 1, 0)}):Play()
+            if not isSaving then
+                statusLabel.Text = "⏸ Ready"
+                statusLabel.TextColor3 = THEME.SubText
+                TweenService:Create(progBarFill, TweenInfo.new(0.5), {Size = UDim2.new(0, 0, 1, 0)}):Play()
             end
         end)
     end
 
-    -- Action Buttons (2 kolom)
-    local siBtnRow = Instance.new("Frame", actHolder)
-    siBtnRow.Size = UDim2.new(1, 0, 0, 40); siBtnRow.BackgroundTransparency = 1
-    siBtnRow.LayoutOrder = siNext()
-    local siBrl = Instance.new("UIListLayout", siBtnRow)
-    siBrl.FillDirection = Enum.FillDirection.Horizontal; siBrl.Padding = UDim.new(0, 8); siBrl.SortOrder = Enum.SortOrder.LayoutOrder
+    -- ---------- CARD 6: ACTIONS ----------
+    local actCard = makeCard("🚀 ACTIONS", THEME.Title, SaveBody)
+    local btnRow = Instance.new("Frame", actCard)
+    btnRow.Size = UDim2.new(1, 0, 0, 40)
+    btnRow.BackgroundTransparency = 1
+    btnRow.LayoutOrder = nextOrder()
+    local brl = Instance.new("UIListLayout", btnRow)
+    brl.FillDirection = Enum.FillDirection.Horizontal
+    brl.Padding = UDim.new(0, 8)
+    brl.SortOrder = Enum.SortOrder.LayoutOrder
 
-    local siSaveFullBtn = Instance.new("TextButton", siBtnRow)
-    siSaveFullBtn.Size = UDim2.new(0.5, -4, 1, 0); siSaveFullBtn.BackgroundColor3 = THEME.On
-    siSaveFullBtn.Text = "💾 SAVE FULL"; siSaveFullBtn.TextColor3 = Color3.new(1, 1, 1)
-    siSaveFullBtn.Font = THEME.Font; siSaveFullBtn.TextSize = 14; siSaveFullBtn.LayoutOrder = 1; corner(siSaveFullBtn, 8)
-    siSaveFullBtn.MouseButton1Click:Connect(function() siDoSave(false) end)
+    local saveFullBtn = Instance.new("TextButton", btnRow)
+    saveFullBtn.Size = UDim2.new(0.5, -4, 1, 0)
+    saveFullBtn.BackgroundColor3 = THEME.On
+    saveFullBtn.Text = "💾 SAVE FULL"
+    saveFullBtn.TextColor3 = Color3.new(1, 1, 1)
+    saveFullBtn.Font = THEME.Font
+    saveFullBtn.TextSize = 14
+    saveFullBtn.LayoutOrder = 1
+    corner(saveFullBtn, 8)
+    saveFullBtn.MouseButton1Click:Connect(function() doSave(false) end)
 
-    local siSaveWSBtn = Instance.new("TextButton", siBtnRow)
-    siSaveWSBtn.Size = UDim2.new(0.5, -4, 1, 0); siSaveWSBtn.BackgroundColor3 = THEME.Cyan
-    siSaveWSBtn.Text = "🗺 WORKSPACE"; siSaveWSBtn.TextColor3 = Color3.new(0, 0, 0)
-    siSaveWSBtn.Font = THEME.Font; siSaveWSBtn.TextSize = 14; siSaveWSBtn.LayoutOrder = 2; corner(siSaveWSBtn, 8)
-    siSaveWSBtn.MouseButton1Click:Connect(function() siDoSave(true) end)
+    local saveWSBtn = Instance.new("TextButton", btnRow)
+    saveWSBtn.Size = UDim2.new(0.5, -4, 1, 0)
+    saveWSBtn.BackgroundColor3 = THEME.Cyan
+    saveWSBtn.Text = "🗺 WORKSPACE"
+    saveWSBtn.TextColor3 = Color3.new(0, 0, 0)
+    saveWSBtn.Font = THEME.Font
+    saveWSBtn.TextSize = 14
+    saveWSBtn.LayoutOrder = 2
+    corner(saveWSBtn, 8)
+    saveWSBtn.MouseButton1Click:Connect(function() doSave(true) end)
 end
+setupSaveInstanceTab()
 
 -- Entry animation
 Frame.Visible = true
 TweenService:Create(MainScale, tweenBounce, {Scale = config.guiScale}):Play()
-notify("Prawira Hub siap dipakai!", THEME.Title)
+notify("Prawira Hub 4 siap dipakai!", THEME.Title)
+    
