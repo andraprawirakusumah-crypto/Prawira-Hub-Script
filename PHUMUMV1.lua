@@ -142,6 +142,7 @@ local config = {
     walkSpeed  = 28,
     defaultWalk= 16,
     guiScale   = 1,   -- skala GUI (besar/kecil) lewat grip pojok kanan-bawah
+    flyPanelScale = 1, -- skala panel FLY CONTROL (grip pojok kanan-bawah panel)
     jumpPower  = 50,  -- Jump Power (default Roblox 50)
     espMode    = 1,   -- 1: Line, 2: Health+Name, 3: Highlight+Name
     orbitRadius= 10,  -- jarak radius orbit player
@@ -289,7 +290,7 @@ CloseBtn.TextSize = BTN_TEXTSIZE
 corner(CloseBtn, 8)
 
 -- ============================================================
--- TAB BAR (Main Menu / Save Instance / Scan Emote / Output)
+-- TAB BAR (Main Menu / Save Instance / Output)
 -- ============================================================
 local TabBar = Instance.new("Frame", Frame)
 TabBar.Size = UDim2.new(1, -24, 0, 30)
@@ -301,7 +302,7 @@ tbl.Padding = UDim.new(0, 6)
 tbl.SortOrder = Enum.SortOrder.LayoutOrder
 
 tabMainBtn = Instance.new("TextButton", TabBar)
-tabMainBtn.Size = UDim2.new(1/4, -5, 1, 0)
+tabMainBtn.Size = UDim2.new(1/3, -4, 1, 0)
 tabMainBtn.BackgroundColor3 = THEME.Title
 tabMainBtn.Text = "🏠 Main"
 tabMainBtn.TextColor3 = Color3.new(0, 0, 0)
@@ -311,33 +312,23 @@ tabMainBtn.LayoutOrder = 1
 corner(tabMainBtn, 8)
 
 tabSaveBtn = Instance.new("TextButton", TabBar)
-tabSaveBtn.Size = UDim2.new(1/4, -5, 1, 0)
+tabSaveBtn.Size = UDim2.new(1/3, -4, 1, 0)
 tabSaveBtn.BackgroundColor3 = THEME.Slot
-tabSaveBtn.Text = "💾 Save"
+tabSaveBtn.Text = "💾 Save Instance"
 tabSaveBtn.TextColor3 = THEME.Text
 tabSaveBtn.Font = THEME.Font
 tabSaveBtn.TextSize = 13
 tabSaveBtn.LayoutOrder = 2
 corner(tabSaveBtn, 8)
 
-tabEmoteBtn = Instance.new("TextButton", TabBar)
-tabEmoteBtn.Size = UDim2.new(1/4, -5, 1, 0)
-tabEmoteBtn.BackgroundColor3 = THEME.Slot
-tabEmoteBtn.Text = "🎭 Emote"
-tabEmoteBtn.TextColor3 = THEME.Text
-tabEmoteBtn.Font = THEME.Font
-tabEmoteBtn.TextSize = 13
-tabEmoteBtn.LayoutOrder = 3
-corner(tabEmoteBtn, 8)
-
 tabOutBtn = Instance.new("TextButton", TabBar)
-tabOutBtn.Size = UDim2.new(1/4, -5, 1, 0)
+tabOutBtn.Size = UDim2.new(1/3, -4, 1, 0)
 tabOutBtn.BackgroundColor3 = THEME.Slot
 tabOutBtn.Text = "📜 Output"
 tabOutBtn.TextColor3 = THEME.Text
 tabOutBtn.Font = THEME.Font
 tabOutBtn.TextSize = 13
-tabOutBtn.LayoutOrder = 4
+tabOutBtn.LayoutOrder = 3
 corner(tabOutBtn, 8)
 
 -- body scroll (Main Menu tab)
@@ -506,29 +497,7 @@ SaveBodyPad.PaddingRight = UDim.new(0, 10)
 
 -- (Tab Server dihapus -- fitur server-side tidak berguna di map orang lain.)
 
--- ============================================================
--- SCAN EMOTE TAB BODY
--- ============================================================
-EmoteBody = Instance.new("ScrollingFrame", Frame)
-EmoteBody.Size = UDim2.new(1, -24, 1, -108)
-EmoteBody.Position = UDim2.new(0, 12, 0, 96)
-EmoteBody.BackgroundTransparency = 1
-EmoteBody.BorderSizePixel = 0
-EmoteBody.ScrollBarThickness = 5
-EmoteBody.ScrollBarImageColor3 = THEME.Pink
-EmoteBody.AutomaticCanvasSize = Enum.AutomaticSize.Y
-EmoteBody.CanvasSize = UDim2.new(0, 0, 0, 0)
-EmoteBody.Visible = false
-EmoteBodyLayout = Instance.new("UIListLayout", EmoteBody)
-EmoteBodyLayout.SortOrder = Enum.SortOrder.LayoutOrder
-EmoteBodyLayout.Padding = UDim.new(0, 10)
-EmoteBodyPad = Instance.new("UIPadding", EmoteBody)
-EmoteBodyPad.PaddingTop = UDim.new(0, 6)
-EmoteBodyPad.PaddingBottom = UDim.new(0, 8)
-EmoteBodyPad.PaddingLeft = UDim.new(0, 6)
-EmoteBodyPad.PaddingRight = UDim.new(0, 10)
-
--- tab switching (Main / Save Instance / Scan Emote / Output)
+-- tab switching (Main / Save Instance / Output)
 local function setTabStyle(btn, on)
     btn.BackgroundColor3 = on and THEME.Title or THEME.Slot
     btn.TextColor3 = on and Color3.new(0, 0, 0) or THEME.Text
@@ -536,16 +505,13 @@ end
 local function showTab(which)
     Body.Visible       = (which == "main")
     SaveBody.Visible   = (which == "save")
-    EmoteBody.Visible  = (which == "emote")
     OutputBody.Visible = (which == "output")
-    setTabStyle(tabMainBtn,  which == "main")
-    setTabStyle(tabSaveBtn,  which == "save")
-    setTabStyle(tabEmoteBtn, which == "emote")
-    setTabStyle(tabOutBtn,   which == "output")
+    setTabStyle(tabMainBtn, which == "main")
+    setTabStyle(tabSaveBtn, which == "save")
+    setTabStyle(tabOutBtn,  which == "output")
 end
 tabMainBtn.MouseButton1Click:Connect(function() showTab("main") end)
 tabSaveBtn.MouseButton1Click:Connect(function() showTab("save") end)
-tabEmoteBtn.MouseButton1Click:Connect(function() showTab("emote") end)
 tabOutBtn.MouseButton1Click:Connect(function() showTab("output") end)
 
 -- ============================================================
@@ -1824,7 +1790,7 @@ local function openFlyPanel()
     corner(panel, 12)
     neonStroke(panel, 2)   -- Fly panel: pinggiran RGB neon berputar juga
     local ps = Instance.new("UIScale", panel); ps.Scale = 0
-    TweenService:Create(ps, tweenBounce, {Scale = 1}):Play()
+    TweenService:Create(ps, tweenBounce, {Scale = config.flyPanelScale}):Play()
     flyControlPanel = panel
 
     local h = Instance.new("Frame", panel)
@@ -1870,6 +1836,51 @@ local function openFlyPanel()
         end))
         UserInputService.InputEnded:Connect(function(i)
             if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then dragging = false end
+        end)
+    end
+
+    -- resize grip pojok kanan-bawah (SAMA seperti Frame utama): tekan lalu
+    -- tarik keluar = besar, tarik masuk = kecil. Skala disimpan di
+    -- config.flyPanelScale supaya ukuran tidak reset saat panel dibuka ulang.
+    do
+        local grip = Instance.new("TextButton", panel)
+        grip.Name = "ResizeGrip"
+        grip.AnchorPoint = Vector2.new(1, 1)
+        grip.Size = UDim2.fromOffset(22, 22)
+        grip.Position = UDim2.new(1, -4, 1, -4)
+        grip.BackgroundColor3 = THEME.Panel
+        grip.Text = "◢"
+        grip.TextColor3 = THEME.Title
+        grip.Font = THEME.Font
+        grip.TextSize = 16
+        grip.AutoButtonColor = false
+        grip.ZIndex = 60
+        corner(grip, 6)
+        stroke(grip, THEME.Title, 1)
+
+        local MIN_S, MAX_S = 0.55, 1.8
+        local resizing, startDist, startScale, centerPx = false, 1, 1, Vector2.zero
+
+        grip.InputBegan:Connect(function(i)
+            if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                resizing  = true
+                centerPx  = panel.AbsolutePosition + panel.AbsoluteSize / 2
+                startDist = math.max((Vector2.new(i.Position.X, i.Position.Y) - centerPx).Magnitude, 1)
+                startScale= config.flyPanelScale
+            end
+        end)
+        track(UserInputService.InputChanged:Connect(function(i)
+            if resizing and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+                local cur = (Vector2.new(i.Position.X, i.Position.Y) - centerPx).Magnitude
+                local s = math.clamp(startScale * (cur / startDist), MIN_S, MAX_S)
+                config.flyPanelScale = s
+                ps.Scale = s
+            end
+        end))
+        UserInputService.InputEnded:Connect(function(i)
+            if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                resizing = false
+            end
         end)
     end
 
@@ -4630,690 +4641,6 @@ local function setupSaveInstanceTab()
     saveWSBtn.MouseButton1Click:Connect(function() doSave(true) end)
 end
 setupSaveInstanceTab()
-
--- ============================================================
--- SCAN EMOTE TAB (fitur scan semua Animation Emote/Dance/Pose)
--- ============================================================
-local function setupScanEmoteTab()
-    local emoteOrderCounter = 0
-    local function emoteNextOrder() emoteOrderCounter = emoteOrderCounter + 1; return emoteOrderCounter end
-
-    -- ========== CARD 1: INFO ==========
-    local infoCard = Instance.new("Frame", EmoteBody)
-    infoCard.Size = UDim2.new(1, 0, 0, 0)
-    infoCard.AutomaticSize = Enum.AutomaticSize.Y
-    infoCard.BackgroundColor3 = THEME.Panel
-    infoCard.BorderSizePixel = 0
-    infoCard.LayoutOrder = emoteNextOrder()
-    corner(infoCard, 10)
-    stroke(infoCard, THEME.Pink, 1)
-
-    local infoBar = Instance.new("Frame", infoCard)
-    infoBar.Size = UDim2.new(0, 4, 1, -10)
-    infoBar.Position = UDim2.new(0, 0, 0, 5)
-    infoBar.BackgroundColor3 = THEME.Pink
-    infoBar.BorderSizePixel = 0
-    corner(infoBar, 4)
-
-    local infoHead = Instance.new("TextLabel", infoCard)
-    infoHead.Size = UDim2.new(1, -28, 0, 26)
-    infoHead.Position = UDim2.new(0, 14, 0, 6)
-    infoHead.BackgroundTransparency = 1
-    infoHead.Text = "🎭 SCAN EMOTE / DANCE / POSE"
-    infoHead.TextColor3 = THEME.Pink
-    infoHead.Font = THEME.Font
-    infoHead.TextSize = 13
-    infoHead.TextXAlignment = Enum.TextXAlignment.Left
-
-    local infoDesc = Instance.new("TextLabel", infoCard)
-    infoDesc.Size = UDim2.new(1, -28, 0, 0)
-    infoDesc.AutomaticSize = Enum.AutomaticSize.Y
-    infoDesc.Position = UDim2.new(0, 14, 0, 32)
-    infoDesc.BackgroundTransparency = 1
-    infoDesc.Text = "Scan seluruh game untuk mencari semua Animation ID dari emote, dancing, dan poses. Hasil disimpan rapih ke file .txt di workspace executor."
-    infoDesc.TextColor3 = THEME.SubText
-    infoDesc.Font = THEME.FontReg
-    infoDesc.TextSize = 12
-    infoDesc.TextWrapped = true
-    infoDesc.TextXAlignment = Enum.TextXAlignment.Left
-
-    local infoPadBottom = Instance.new("UIPadding", infoCard)
-    infoPadBottom.PaddingBottom = UDim.new(0, 12)
-
-    -- ========== CARD 2: STATUS & PROGRESS ==========
-    local statusCard = Instance.new("Frame", EmoteBody)
-    statusCard.Size = UDim2.new(1, 0, 0, 0)
-    statusCard.AutomaticSize = Enum.AutomaticSize.Y
-    statusCard.BackgroundColor3 = THEME.Panel
-    statusCard.BorderSizePixel = 0
-    statusCard.LayoutOrder = emoteNextOrder()
-    corner(statusCard, 10)
-    stroke(statusCard, THEME.Cyan, 1)
-
-    local statusBar = Instance.new("Frame", statusCard)
-    statusBar.Size = UDim2.new(0, 4, 1, -10)
-    statusBar.Position = UDim2.new(0, 0, 0, 5)
-    statusBar.BackgroundColor3 = THEME.Cyan
-    statusBar.BorderSizePixel = 0
-    corner(statusBar, 4)
-
-    local statusHead = Instance.new("TextLabel", statusCard)
-    statusHead.Size = UDim2.new(1, -28, 0, 26)
-    statusHead.Position = UDim2.new(0, 14, 0, 6)
-    statusHead.BackgroundTransparency = 1
-    statusHead.Text = "📊 STATUS"
-    statusHead.TextColor3 = THEME.Cyan
-    statusHead.Font = THEME.Font
-    statusHead.TextSize = 13
-    statusHead.TextXAlignment = Enum.TextXAlignment.Left
-
-    local emoteStatusLabel = Instance.new("TextLabel", statusCard)
-    emoteStatusLabel.Size = UDim2.new(1, -28, 0, 20)
-    emoteStatusLabel.Position = UDim2.new(0, 14, 0, 34)
-    emoteStatusLabel.BackgroundTransparency = 1
-    emoteStatusLabel.Text = "⏸ Siap scan"
-    emoteStatusLabel.TextColor3 = THEME.SubText
-    emoteStatusLabel.Font = THEME.FontReg
-    emoteStatusLabel.TextSize = 12
-    emoteStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
-
-    -- progress bar
-    local progBg = Instance.new("Frame", statusCard)
-    progBg.Size = UDim2.new(1, -28, 0, 8)
-    progBg.Position = UDim2.new(0, 14, 0, 58)
-    progBg.BackgroundColor3 = Color3.fromRGB(55, 55, 75)
-    progBg.BorderSizePixel = 0
-    corner(progBg, 4)
-
-    local progFill = Instance.new("Frame", progBg)
-    progFill.Size = UDim2.new(0, 0, 1, 0)
-    progFill.BackgroundColor3 = THEME.Pink
-    progFill.BorderSizePixel = 0
-    corner(progFill, 4)
-    gradient(progFill, THEME.Pink, THEME.Purple, 0)
-
-    -- counter labels
-    local counterLabel = Instance.new("TextLabel", statusCard)
-    counterLabel.Size = UDim2.new(1, -28, 0, 18)
-    counterLabel.Position = UDim2.new(0, 14, 0, 72)
-    counterLabel.BackgroundTransparency = 1
-    counterLabel.Text = "💃 Dancing: 0  |  🧍 Poses: 0  |  🎵 Other: 0"
-    counterLabel.TextColor3 = THEME.SubText
-    counterLabel.Font = THEME.FontReg
-    counterLabel.TextSize = 11
-    counterLabel.TextXAlignment = Enum.TextXAlignment.Left
-
-    local statusPadBottom = Instance.new("UIPadding", statusCard)
-    statusPadBottom.PaddingBottom = UDim.new(0, 12)
-
-    -- ========== CARD 3: SCAN ACTIONS ==========
-    local actCard = Instance.new("Frame", EmoteBody)
-    actCard.Size = UDim2.new(1, 0, 0, 0)
-    actCard.AutomaticSize = Enum.AutomaticSize.Y
-    actCard.BackgroundColor3 = THEME.Panel
-    actCard.BorderSizePixel = 0
-    actCard.LayoutOrder = emoteNextOrder()
-    corner(actCard, 10)
-    stroke(actCard, THEME.Purple, 1)
-
-    local actBar = Instance.new("Frame", actCard)
-    actBar.Size = UDim2.new(0, 4, 1, -10)
-    actBar.Position = UDim2.new(0, 0, 0, 5)
-    actBar.BackgroundColor3 = THEME.Purple
-    actBar.BorderSizePixel = 0
-    corner(actBar, 4)
-
-    local actHead = Instance.new("TextLabel", actCard)
-    actHead.Size = UDim2.new(1, -28, 0, 26)
-    actHead.Position = UDim2.new(0, 14, 0, 6)
-    actHead.BackgroundTransparency = 1
-    actHead.Text = "🚀 ACTIONS"
-    actHead.TextColor3 = THEME.Purple
-    actHead.Font = THEME.Font
-    actHead.TextSize = 13
-    actHead.TextXAlignment = Enum.TextXAlignment.Left
-
-    -- holder frame for buttons
-    local actHolder = Instance.new("Frame", actCard)
-    actHolder.Size = UDim2.new(1, -28, 0, 0)
-    actHolder.AutomaticSize = Enum.AutomaticSize.Y
-    actHolder.Position = UDim2.new(0, 14, 0, 34)
-    actHolder.BackgroundTransparency = 1
-    local actHL = Instance.new("UIListLayout", actHolder)
-    actHL.SortOrder = Enum.SortOrder.LayoutOrder
-    actHL.Padding = UDim.new(0, 8)
-    local actPad = Instance.new("UIPadding", actHolder)
-    actPad.PaddingBottom = UDim.new(0, 12)
-
-    -- ========== SCAN ENGINE ==========
-    local isScanning = false
-    local lastScanResults = nil  -- simpan hasil scan terakhir
-    local MarketplaceService = game:GetService("MarketplaceService")
-
-    -- keyword matcher: tentukan kategori berdasarkan nama/path
-    local DANCE_KEYWORDS = {
-        "dance", "dancing", "joget", "goyang", "shuffle", "twerk", "breakdance",
-        "hiphop", "hip hop", "samba", "salsa", "floss", "macarena", "disco",
-        "boogie", "waltz", "tango", "ballet", "capoeira", "robot dance",
-        "moonwalk", "dab", "groove", "cha cha", "twist", "swing",
-    }
-    local POSE_KEYWORDS = {
-        "pose", "idle", "sit", "stand", "crouch", "lean", "wave", "point",
-        "salute", "bow", "kneel", "pray", "meditate", "flex", "facepalm",
-        "shrug", "clap", "cheer", "laugh", "cry", "angry", "sad", "happy",
-        "thinking", "sleep", "lay", "lie", "rest", "stretch",
-    }
-
-    local function categorize(name)
-        local lower = name:lower()
-        for _, kw in ipairs(DANCE_KEYWORDS) do
-            if lower:find(kw, 1, true) then return "Dancing" end
-        end
-        for _, kw in ipairs(POSE_KEYWORDS) do
-            if lower:find(kw, 1, true) then return "Poses" end
-        end
-        return "Other Emotes"
-    end
-
-    -- extract numeric ID dari AnimationId string
-    local function extractId(animId)
-        if not animId or animId == "" then return nil end
-        local numId = animId:match("(%d+)")
-        return numId
-    end
-
-    -- coba ambil nama asset dari MarketplaceService (cache supaya tidak spam)
-    local assetNameCache = {}
-    local function getAssetName(numId)
-        if assetNameCache[numId] ~= nil then return assetNameCache[numId] end
-        local name = nil
-        pcall(function()
-            local info = MarketplaceService:GetProductInfo(tonumber(numId))
-            if info and info.Name and info.Name ~= "" then
-                name = info.Name
-            end
-        end)
-        assetNameCache[numId] = name or false  -- false = sudah dicoba tapi gagal
-        return name
-    end
-
-    -- ===== PHASE 1: Scan HumanoidDescription emotes (nama asli emote) =====
-    local function scanHumanoidDescriptionEmotes()
-        local results = {}
-        local seen = {}
-        pcall(function()
-            if not humanoid then return end
-            local desc = humanoid:GetAppliedDescription()
-            if not desc then return end
-
-            -- GetEmotes() -> { [emoteName] = {animId1, animId2, ...} }
-            local emotes = desc:GetEmotes()
-            if emotes then
-                for emoteName, animIds in pairs(emotes) do
-                    for _, animId in ipairs(animIds) do
-                        local numId = extractId(tostring(animId))
-                        if numId and not seen[numId] then
-                            seen[numId] = true
-                            local cat = categorize(emoteName)
-                            table.insert(results, {
-                                name = emoteName,
-                                id = numId,
-                                category = cat,
-                                path = "HumanoidDescription/Emotes/" .. emoteName,
-                                source = "HumanoidDescription",
-                            })
-                        end
-                    end
-                end
-            end
-        end)
-        return results, seen
-    end
-
-    -- ===== PHASE 2: Scan Animate script di character =====
-    local function scanAnimateScript()
-        local results = {}
-        local seen = {}
-        pcall(function()
-            if not character then return end
-            local animate = character:FindFirstChild("Animate")
-            if not animate then return end
-
-            -- Animate punya child folders: idle, walk, run, jump, climb, fall, swim, dance, ...
-            -- Masing-masing berisi StringValue/Animation dengan AnimationId
-            for _, child in ipairs(animate:GetChildren()) do
-                local groupName = child.Name  -- "dance", "idle", "walk", dll
-                for _, anim in ipairs(child:GetChildren()) do
-                    pcall(function()
-                        local animId = nil
-                        if anim:IsA("Animation") then
-                            animId = anim.AnimationId
-                        elseif anim:IsA("StringValue") then
-                            animId = anim.Value
-                            -- cek juga child Animation di dalam StringValue
-                            local subAnim = anim:FindFirstChildOfClass("Animation")
-                            if subAnim then animId = subAnim.AnimationId end
-                        end
-                        if animId then
-                            local numId = extractId(animId)
-                            if numId and not seen[numId] then
-                                seen[numId] = true
-                                -- format nama: "Dance1", "Idle2" -> lebih bermakna
-                                local displayName = groupName:sub(1,1):upper() .. groupName:sub(2)
-                                if anim.Name ~= groupName and anim.Name ~= "Animation" then
-                                    displayName = displayName .. " - " .. anim.Name
-                                end
-                                local cat = categorize(groupName .. " " .. anim.Name)
-                                table.insert(results, {
-                                    name = displayName,
-                                    id = numId,
-                                    category = cat,
-                                    path = "Character/Animate/" .. groupName .. "/" .. anim.Name,
-                                    source = "Animate",
-                                })
-                            end
-                        end
-                    end)
-                end
-            end
-        end)
-        return results, seen
-    end
-
-    -- ===== PHASE 3: Scan descendants untuk Animation objects =====
-    local function scanDescendants(root, knownNames)
-        local results = {}
-        local seen = {}
-        local total = 0
-        local scanned = 0
-
-        local allDesc = {}
-        local ok, err = pcall(function()
-            allDesc = root:GetDescendants()
-        end)
-        if not ok then return results end
-        total = #allDesc
-
-        for i, obj in ipairs(allDesc) do
-            scanned = scanned + 1
-
-            if scanned % 500 == 0 or scanned == total then
-                local pct = scanned / math.max(total, 1)
-                emoteStatusLabel.Text = "🔍 Scanning " .. root.Name .. "... (" .. scanned .. "/" .. total .. ")"
-                TweenService:Create(progFill, TweenInfo.new(0.15), {Size = UDim2.new(pct, 0, 1, 0)}):Play()
-                task.wait()
-            end
-
-            pcall(function()
-                if obj:IsA("Animation") then
-                    local animId = obj.AnimationId
-                    local numId = extractId(animId)
-                    if numId and not seen[numId] then
-                        seen[numId] = true
-                        local fullPath = obj:GetFullName()
-                        local animName = nil
-
-                        -- 1) cek apakah ID ini sudah punya nama dari Phase 1/2
-                        if knownNames and knownNames[numId] then
-                            animName = knownNames[numId]
-                        end
-
-                        -- 2) pakai nama parent jika nama obj generic
-                        if not animName then
-                            animName = obj.Name
-                            if animName == "Animation" or animName == "animation" or animName:match("^Animation%d*$") then
-                                -- coba pakai nama parent chain yg bermakna
-                                local p = obj.Parent
-                                if p then
-                                    local pName = p.Name
-                                    if pName ~= "Animate" and pName ~= "Animation" then
-                                        animName = pName
-                                    end
-                                    -- cek grandparent juga
-                                    if p.Parent and (pName == "Animation" or pName:match("^Animation%d*$")) then
-                                        animName = p.Parent.Name
-                                    end
-                                end
-                            end
-                        end
-
-                        -- 3) coba ambil nama dari MarketplaceService (asset name)
-                        if not animName or animName == "Animation" or animName:match("^Animation%d*$") then
-                            local assetName = getAssetName(numId)
-                            if assetName then animName = assetName end
-                        end
-
-                        -- 4) final fallback
-                        if not animName or animName == "" then
-                            animName = "Unknown_" .. numId
-                        end
-
-                        local cat = categorize(animName .. " " .. fullPath)
-                        table.insert(results, {
-                            name = animName,
-                            id = numId,
-                            category = cat,
-                            path = fullPath,
-                            source = root.Name,
-                        })
-                    end
-                end
-            end)
-        end
-
-        return results
-    end
-
-    -- format output ke text rapih
-    local function formatResults(results)
-        -- sort by category lalu nama
-        local catOrder = {["Dancing"] = 1, ["Poses"] = 2, ["Other Emotes"] = 3}
-        table.sort(results, function(a, b)
-            local ca = catOrder[a.category] or 99
-            local cb = catOrder[b.category] or 99
-            if ca ~= cb then return ca < cb end
-            return a.name:lower() < b.name:lower()
-        end)
-
-        local lines = {}
-        table.insert(lines, "===========================================================")
-        table.insert(lines, "   PRAWIRA HUB - EMOTE / DANCE / POSE SCAN RESULTS")
-        table.insert(lines, "===========================================================")
-        table.insert(lines, "Game    : " .. tostring(game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name or "Unknown"))
-        table.insert(lines, "PlaceId : " .. tostring(game.PlaceId))
-        table.insert(lines, "Tanggal : " .. os.date("%Y-%m-%d %H:%M:%S"))
-        table.insert(lines, "Total   : " .. #results .. " animasi ditemukan")
-        table.insert(lines, "===========================================================")
-        table.insert(lines, "")
-
-        local currentCat = nil
-        local dancingCount, poseCount, otherCount = 0, 0, 0
-
-        for _, r in ipairs(results) do
-            if r.category == "Dancing" then dancingCount = dancingCount + 1
-            elseif r.category == "Poses" then poseCount = poseCount + 1
-            else otherCount = otherCount + 1 end
-        end
-
-        for _, r in ipairs(results) do
-            if r.category ~= currentCat then
-                currentCat = r.category
-                if #lines > 0 and lines[#lines] ~= "" then
-                    table.insert(lines, "")
-                end
-                local icon = "🎵"
-                if currentCat == "Dancing" then icon = "💃"
-                elseif currentCat == "Poses" then icon = "🧍" end
-                local count = 0
-                if currentCat == "Dancing" then count = dancingCount
-                elseif currentCat == "Poses" then count = poseCount
-                else count = otherCount end
-                table.insert(lines, "-----------------------------------------------------------")
-                table.insert(lines, "  " .. icon .. " " .. currentCat:upper() .. " (" .. count .. " items)")
-                table.insert(lines, "-----------------------------------------------------------")
-            end
-            table.insert(lines, r.name .. ": " .. r.id)
-        end
-
-        table.insert(lines, "")
-        table.insert(lines, "===========================================================")
-        table.insert(lines, "  💃 Dancing: " .. dancingCount .. "  |  🧍 Poses: " .. poseCount .. "  |  🎵 Other: " .. otherCount)
-        table.insert(lines, "===========================================================")
-
-        return table.concat(lines, "\n"), dancingCount, poseCount, otherCount
-    end
-
-    -- SCAN BUTTON
-    local scanBtn = Instance.new("TextButton", actHolder)
-    scanBtn.Size = UDim2.new(1, 0, 0, 36)
-    scanBtn.BackgroundColor3 = THEME.Pink
-    scanBtn.Text = "🔍 SCAN SEMUA EMOTE"
-    scanBtn.TextColor3 = Color3.new(1, 1, 1)
-    scanBtn.Font = THEME.Font
-    scanBtn.TextSize = 14
-    scanBtn.LayoutOrder = 1
-    corner(scanBtn, 8)
-    gradient(scanBtn, THEME.Pink, THEME.Purple, 0)
-
-    -- SAVE TO FILE BUTTON
-    local saveEmoteBtn = Instance.new("TextButton", actHolder)
-    saveEmoteBtn.Size = UDim2.new(1, 0, 0, 36)
-    saveEmoteBtn.BackgroundColor3 = THEME.On
-    saveEmoteBtn.Text = "💾 SIMPAN KE .TXT"
-    saveEmoteBtn.TextColor3 = Color3.new(1, 1, 1)
-    saveEmoteBtn.Font = THEME.Font
-    saveEmoteBtn.TextSize = 14
-    saveEmoteBtn.LayoutOrder = 2
-    corner(saveEmoteBtn, 8)
-
-    -- COPY TO CLIPBOARD BUTTON
-    local copyEmoteBtn = Instance.new("TextButton", actHolder)
-    copyEmoteBtn.Size = UDim2.new(1, 0, 0, 36)
-    copyEmoteBtn.BackgroundColor3 = THEME.Blue
-    copyEmoteBtn.Text = "📋 COPY KE CLIPBOARD"
-    copyEmoteBtn.TextColor3 = Color3.new(1, 1, 1)
-    copyEmoteBtn.Font = THEME.Font
-    copyEmoteBtn.TextSize = 14
-    copyEmoteBtn.LayoutOrder = 3
-    corner(copyEmoteBtn, 8)
-
-    -- ========== CARD 4: PREVIEW HASIL ==========
-    local previewCard = Instance.new("Frame", EmoteBody)
-    previewCard.Size = UDim2.new(1, 0, 0, 0)
-    previewCard.AutomaticSize = Enum.AutomaticSize.Y
-    previewCard.BackgroundColor3 = THEME.Panel
-    previewCard.BorderSizePixel = 0
-    previewCard.LayoutOrder = emoteNextOrder()
-    corner(previewCard, 10)
-    stroke(previewCard, THEME.Cyan, 1)
-
-    local prevBar = Instance.new("Frame", previewCard)
-    prevBar.Size = UDim2.new(0, 4, 1, -10)
-    prevBar.Position = UDim2.new(0, 0, 0, 5)
-    prevBar.BackgroundColor3 = THEME.Cyan
-    prevBar.BorderSizePixel = 0
-    corner(prevBar, 4)
-
-    local prevHead = Instance.new("TextLabel", previewCard)
-    prevHead.Size = UDim2.new(1, -28, 0, 26)
-    prevHead.Position = UDim2.new(0, 14, 0, 6)
-    prevHead.BackgroundTransparency = 1
-    prevHead.Text = "📝 PREVIEW HASIL"
-    prevHead.TextColor3 = THEME.Cyan
-    prevHead.Font = THEME.Font
-    prevHead.TextSize = 13
-    prevHead.TextXAlignment = Enum.TextXAlignment.Left
-
-    local previewScroll = Instance.new("ScrollingFrame", previewCard)
-    previewScroll.Size = UDim2.new(1, -28, 0, 200)
-    previewScroll.Position = UDim2.new(0, 14, 0, 34)
-    previewScroll.BackgroundColor3 = Color3.fromRGB(12, 12, 18)
-    previewScroll.BorderSizePixel = 0
-    previewScroll.ScrollBarThickness = 4
-    previewScroll.ScrollBarImageColor3 = THEME.Pink
-    previewScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    previewScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-    corner(previewScroll, 6)
-    stroke(previewScroll, THEME.Stroke, 1)
-
-    local prevPadInner = Instance.new("UIPadding", previewScroll)
-    prevPadInner.PaddingLeft = UDim.new(0, 8)
-    prevPadInner.PaddingTop = UDim.new(0, 6)
-    prevPadInner.PaddingRight = UDim.new(0, 8)
-    prevPadInner.PaddingBottom = UDim.new(0, 6)
-
-    local previewLabel = Instance.new("TextLabel", previewScroll)
-    previewLabel.Size = UDim2.new(1, -8, 0, 0)
-    previewLabel.AutomaticSize = Enum.AutomaticSize.Y
-    previewLabel.BackgroundTransparency = 1
-    previewLabel.Text = "Belum ada hasil scan. Tekan tombol 'SCAN SEMUA EMOTE' untuk mulai."
-    previewLabel.TextColor3 = THEME.SubText
-    previewLabel.Font = Enum.Font.Code
-    previewLabel.TextSize = 11
-    previewLabel.TextWrapped = true
-    previewLabel.TextXAlignment = Enum.TextXAlignment.Left
-    previewLabel.TextYAlignment = Enum.TextYAlignment.Top
-
-    local prevPadBottom = Instance.new("UIPadding", previewCard)
-    prevPadBottom.PaddingBottom = UDim.new(0, 12)
-
-    -- ========== BUTTON CONNECTIONS ==========
-
-    -- SCAN
-    scanBtn.MouseButton1Click:Connect(function()
-        if isScanning then
-            notify("⏳ Scan masih berjalan...", THEME.Yellow)
-            return
-        end
-        isScanning = true
-        lastScanResults = nil
-        scanBtn.Text = "⏳ SCANNING..."
-        TweenService:Create(scanBtn, tweenFast, {BackgroundColor3 = THEME.Yellow}):Play()
-        emoteStatusLabel.Text = "🔍 Memulai scan..."
-        emoteStatusLabel.TextColor3 = THEME.Yellow
-        counterLabel.Text = "💃 Dancing: 0  |  🧍 Poses: 0  |  🎵 Other: 0"
-        previewLabel.Text = "Scanning..."
-        previewLabel.TextColor3 = THEME.Yellow
-        TweenService:Create(progFill, tweenFast, {Size = UDim2.new(0, 0, 1, 0)}):Play()
-
-        task.defer(function()
-            local allResults = {}
-            local globalSeen = {}  -- dedup antar semua phase
-            local knownNames = {}  -- id -> nama asli (dari Phase 1 & 2)
-
-            -- ===== PHASE 1: HumanoidDescription Emotes (nama asli!) =====
-            emoteStatusLabel.Text = "🔍 Phase 1: Scanning HumanoidDescription emotes..."
-            task.wait()
-            local hdResults, hdSeen = scanHumanoidDescriptionEmotes()
-            for _, r in ipairs(hdResults) do
-                if not globalSeen[r.id] then
-                    globalSeen[r.id] = true
-                    knownNames[r.id] = r.name
-                    table.insert(allResults, r)
-                end
-            end
-
-            -- ===== PHASE 2: Animate Script =====
-            emoteStatusLabel.Text = "🔍 Phase 2: Scanning Animate script..."
-            task.wait()
-            local animResults, animSeen = scanAnimateScript()
-            for _, r in ipairs(animResults) do
-                if not globalSeen[r.id] then
-                    globalSeen[r.id] = true
-                    knownNames[r.id] = r.name
-                    table.insert(allResults, r)
-                end
-            end
-
-            -- ===== PHASE 3: Deep scan semua services =====
-            emoteStatusLabel.Text = "🔍 Phase 3: Deep scanning game services..."
-            task.wait()
-            local scanTargets = {}
-            pcall(function() table.insert(scanTargets, game:GetService("Workspace")) end)
-            pcall(function() table.insert(scanTargets, game:GetService("ReplicatedStorage")) end)
-            pcall(function() table.insert(scanTargets, game:GetService("ReplicatedFirst")) end)
-            pcall(function() table.insert(scanTargets, game:GetService("StarterPack")) end)
-            pcall(function() table.insert(scanTargets, game:GetService("StarterPlayer")) end)
-            pcall(function() table.insert(scanTargets, game:GetService("StarterGui")) end)
-            pcall(function() table.insert(scanTargets, game:GetService("Lighting")) end)
-            pcall(function() table.insert(scanTargets, game:GetService("SoundService")) end)
-            pcall(function()
-                if LocalPlayer.Character then table.insert(scanTargets, LocalPlayer.Character) end
-            end)
-            pcall(function()
-                local bp = LocalPlayer:FindFirstChild("Backpack")
-                if bp then table.insert(scanTargets, bp) end
-            end)
-            pcall(function()
-                local pg = LocalPlayer:FindFirstChild("PlayerGui")
-                if pg then table.insert(scanTargets, pg) end
-            end)
-
-            for idx, target in ipairs(scanTargets) do
-                pcall(function()
-                    emoteStatusLabel.Text = "🔍 Deep scan: " .. target.Name .. " (" .. idx .. "/" .. #scanTargets .. ")"
-                end)
-                local partial = scanDescendants(target, knownNames)
-                for _, r in ipairs(partial) do
-                    if not globalSeen[r.id] then
-                        globalSeen[r.id] = true
-                        table.insert(allResults, r)
-                    end
-                end
-            end
-
-            lastScanResults = allResults
-
-            -- format & display
-            if #allResults > 0 then
-                local text, dc, pc, oc = formatResults(allResults)
-                previewLabel.Text = text
-                previewLabel.TextColor3 = THEME.Text
-                counterLabel.Text = "💃 Dancing: " .. dc .. "  |  🧍 Poses: " .. pc .. "  |  🎵 Other: " .. oc
-                emoteStatusLabel.Text = "✅ Scan selesai! Ditemukan " .. #allResults .. " animasi"
-                emoteStatusLabel.TextColor3 = THEME.On
-                notify("✅ Scan selesai! " .. #allResults .. " emote ditemukan", THEME.On)
-            else
-                previewLabel.Text = "Tidak ditemukan Animation/Emote di game ini."
-                previewLabel.TextColor3 = THEME.SubText
-                emoteStatusLabel.Text = "⚠ Tidak ada emote ditemukan"
-                emoteStatusLabel.TextColor3 = THEME.Yellow
-                notify("⚠ Tidak ada emote ditemukan di game ini", THEME.Yellow)
-            end
-
-            TweenService:Create(progFill, tweenFast, {Size = UDim2.new(1, 0, 1, 0)}):Play()
-            scanBtn.Text = "🔍 SCAN SEMUA EMOTE"
-            TweenService:Create(scanBtn, tweenFast, {BackgroundColor3 = THEME.Pink}):Play()
-            isScanning = false
-        end)
-    end)
-
-    -- SAVE TO FILE
-    saveEmoteBtn.MouseButton1Click:Connect(function()
-        if not lastScanResults or #lastScanResults == 0 then
-            notify("⚠ Scan dulu sebelum menyimpan!", THEME.Yellow)
-            return
-        end
-        if not hasFS then
-            notify("❌ Executor tidak support writefile!", THEME.Red)
-            return
-        end
-
-        local text = formatResults(lastScanResults)
-        local fileName = ROOT_DIR .. "/EmoteScan_" .. PLACE_ID .. ".txt"
-
-        local ok, err = pcall(function()
-            writefile(fileName, text)
-        end)
-
-        if ok then
-            emoteStatusLabel.Text = "💾 Tersimpan: " .. fileName
-            emoteStatusLabel.TextColor3 = THEME.On
-            notify("💾 Berhasil disimpan ke " .. fileName, THEME.On)
-        else
-            emoteStatusLabel.Text = "❌ Gagal simpan: " .. tostring(err):sub(1, 50)
-            emoteStatusLabel.TextColor3 = THEME.Red
-            notify("❌ Gagal simpan file!", THEME.Red)
-        end
-    end)
-
-    -- COPY TO CLIPBOARD
-    copyEmoteBtn.MouseButton1Click:Connect(function()
-        if not lastScanResults or #lastScanResults == 0 then
-            notify("⚠ Scan dulu sebelum copy!", THEME.Yellow)
-            return
-        end
-
-        local text = formatResults(lastScanResults)
-        if setclipboard then
-            pcall(setclipboard, text)
-            notify("📋 Hasil scan disalin ke clipboard!", THEME.Blue)
-        else
-            notify("❌ Executor tidak support clipboard!", THEME.Red)
-        end
-    end)
-end
-setupScanEmoteTab()
 
 -- Entry animation
 Frame.Visible = true
