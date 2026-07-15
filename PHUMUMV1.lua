@@ -4788,6 +4788,7 @@ local function setupScanEmoteTab()
     -- ========== SCAN ENGINE ==========
     local isScanning = false
     local lastScanResults = nil  -- simpan hasil scan terakhir
+    local MarketplaceService = game:GetService("MarketplaceService")
 
     -- keyword matcher: tentukan kategori berdasarkan nama/path
     local DANCE_KEYWORDS = {
@@ -4821,14 +4822,111 @@ local function setupScanEmoteTab()
         return numId
     end
 
-    -- recursive scanner
-    local function scanDescendants(root)
-        local results = {}  -- {name, id, category, path}
-        local seen = {}     -- dedup by animationId
+    -- coba ambil nama asset dari MarketplaceService (cache supaya tidak spam)
+    local assetNameCache = {}
+    local function getAssetName(numId)
+        if assetNameCache[numId] ~= nil then return assetNameCache[numId] end
+        local name = nil
+        pcall(function()
+            local info = MarketplaceService:GetProductInfo(tonumber(numId))
+            if info and info.Name and info.Name ~= "" then
+                name = info.Name
+            end
+        end)
+        assetNameCache[numId] = name or false  -- false = sudah dicoba tapi gagal
+        return name
+    end
+
+    -- ===== PHASE 1: Scan HumanoidDescription emotes (nama asli emote) =====
+    local function scanHumanoidDescriptionEmotes()
+        local results = {}
+        local seen = {}
+        pcall(function()
+            if not humanoid then return end
+            local desc = humanoid:GetAppliedDescription()
+            if not desc then return end
+
+            -- GetEmotes() -> { [emoteName] = {animId1, animId2, ...} }
+            local emotes = desc:GetEmotes()
+            if emotes then
+                for emoteName, animIds in pairs(emotes) do
+                    for _, animId in ipairs(animIds) do
+                        local numId = extractId(tostring(animId))
+                        if numId and not seen[numId] then
+                            seen[numId] = true
+                            local cat = categorize(emoteName)
+                            table.insert(results, {
+                                name = emoteName,
+                                id = numId,
+                                category = cat,
+                                path = "HumanoidDescription/Emotes/" .. emoteName,
+                                source = "HumanoidDescription",
+                            })
+                        end
+                    end
+                end
+            end
+        end)
+        return results, seen
+    end
+
+    -- ===== PHASE 2: Scan Animate script di character =====
+    local function scanAnimateScript()
+        local results = {}
+        local seen = {}
+        pcall(function()
+            if not character then return end
+            local animate = character:FindFirstChild("Animate")
+            if not animate then return end
+
+            -- Animate punya child folders: idle, walk, run, jump, climb, fall, swim, dance, ...
+            -- Masing-masing berisi StringValue/Animation dengan AnimationId
+            for _, child in ipairs(animate:GetChildren()) do
+                local groupName = child.Name  -- "dance", "idle", "walk", dll
+                for _, anim in ipairs(child:GetChildren()) do
+                    pcall(function()
+                        local animId = nil
+                        if anim:IsA("Animation") then
+                            animId = anim.AnimationId
+                        elseif anim:IsA("StringValue") then
+                            animId = anim.Value
+                            -- cek juga child Animation di dalam StringValue
+                            local subAnim = anim:FindFirstChildOfClass("Animation")
+                            if subAnim then animId = subAnim.AnimationId end
+                        end
+                        if animId then
+                            local numId = extractId(animId)
+                            if numId and not seen[numId] then
+                                seen[numId] = true
+                                -- format nama: "Dance1", "Idle2" -> lebih bermakna
+                                local displayName = groupName:sub(1,1):upper() .. groupName:sub(2)
+                                if anim.Name ~= groupName and anim.Name ~= "Animation" then
+                                    displayName = displayName .. " - " .. anim.Name
+                                end
+                                local cat = categorize(groupName .. " " .. anim.Name)
+                                table.insert(results, {
+                                    name = displayName,
+                                    id = numId,
+                                    category = cat,
+                                    path = "Character/Animate/" .. groupName .. "/" .. anim.Name,
+                                    source = "Animate",
+                                })
+                            end
+                        end
+                    end)
+                end
+            end
+        end)
+        return results, seen
+    end
+
+    -- ===== PHASE 3: Scan descendants untuk Animation objects =====
+    local function scanDescendants(root, knownNames)
+        local results = {}
+        local seen = {}
         local total = 0
         local scanned = 0
 
-        -- first pass: count total descendants for progress
         local allDesc = {}
         local ok, err = pcall(function()
             allDesc = root:GetDescendants()
@@ -4839,12 +4937,11 @@ local function setupScanEmoteTab()
         for i, obj in ipairs(allDesc) do
             scanned = scanned + 1
 
-            -- update progress setiap 500 objek
             if scanned % 500 == 0 or scanned == total then
                 local pct = scanned / math.max(total, 1)
-                emoteStatusLabel.Text = "🔍 Scanning... (" .. scanned .. "/" .. total .. ")"
+                emoteStatusLabel.Text = "🔍 Scanning " .. root.Name .. "... (" .. scanned .. "/" .. total .. ")"
                 TweenService:Create(progFill, TweenInfo.new(0.15), {Size = UDim2.new(pct, 0, 1, 0)}):Play()
-                task.wait()  -- yield agar UI tidak freeze
+                task.wait()
             end
 
             pcall(function()
@@ -4854,53 +4951,51 @@ local function setupScanEmoteTab()
                     if numId and not seen[numId] then
                         seen[numId] = true
                         local fullPath = obj:GetFullName()
-                        local animName = obj.Name
-                        -- kalau nama generic ("Animation"), coba pakai nama parent
-                        if animName == "Animation" or animName == "animation" then
-                            local p = obj.Parent
-                            if p then animName = p.Name .. " (Animation)" end
+                        local animName = nil
+
+                        -- 1) cek apakah ID ini sudah punya nama dari Phase 1/2
+                        if knownNames and knownNames[numId] then
+                            animName = knownNames[numId]
                         end
+
+                        -- 2) pakai nama parent jika nama obj generic
+                        if not animName then
+                            animName = obj.Name
+                            if animName == "Animation" or animName == "animation" or animName:match("^Animation%d*$") then
+                                -- coba pakai nama parent chain yg bermakna
+                                local p = obj.Parent
+                                if p then
+                                    local pName = p.Name
+                                    if pName ~= "Animate" and pName ~= "Animation" then
+                                        animName = pName
+                                    end
+                                    -- cek grandparent juga
+                                    if p.Parent and (pName == "Animation" or pName:match("^Animation%d*$")) then
+                                        animName = p.Parent.Name
+                                    end
+                                end
+                            end
+                        end
+
+                        -- 3) coba ambil nama dari MarketplaceService (asset name)
+                        if not animName or animName == "Animation" or animName:match("^Animation%d*$") then
+                            local assetName = getAssetName(numId)
+                            if assetName then animName = assetName end
+                        end
+
+                        -- 4) final fallback
+                        if not animName or animName == "" then
+                            animName = "Unknown_" .. numId
+                        end
+
                         local cat = categorize(animName .. " " .. fullPath)
                         table.insert(results, {
                             name = animName,
                             id = numId,
                             category = cat,
                             path = fullPath,
+                            source = root.Name,
                         })
-                    end
-                end
-
-                -- juga cek StringValue / NumberValue yang berisi animation id
-                if (obj:IsA("StringValue") or obj:IsA("IntValue") or obj:IsA("NumberValue")) then
-                    local val = tostring(obj.Value)
-                    local numId = val:match("(%d%d%d%d%d+)")  -- minimal 5 digit
-                    if numId and not seen[numId] then
-                        local lower = (obj.Name .. (obj:GetFullName() or "")):lower()
-                        local isEmoteRelated = false
-                        for _, kw in ipairs(DANCE_KEYWORDS) do
-                            if lower:find(kw, 1, true) then isEmoteRelated = true; break end
-                        end
-                        if not isEmoteRelated then
-                            for _, kw in ipairs(POSE_KEYWORDS) do
-                                if lower:find(kw, 1, true) then isEmoteRelated = true; break end
-                            end
-                        end
-                        if not isEmoteRelated then
-                            local emoteKw = {"emote", "anim", "gesture", "expression", "action", "move"}
-                            for _, kw in ipairs(emoteKw) do
-                                if lower:find(kw, 1, true) then isEmoteRelated = true; break end
-                            end
-                        end
-                        if isEmoteRelated then
-                            seen[numId] = true
-                            local cat = categorize(obj.Name .. " " .. (obj:GetFullName() or ""))
-                            table.insert(results, {
-                                name = obj.Name,
-                                id = numId,
-                                category = cat,
-                                path = obj:GetFullName(),
-                            })
-                        end
                     end
                 end
             end)
@@ -5083,8 +5178,36 @@ local function setupScanEmoteTab()
 
         task.defer(function()
             local allResults = {}
+            local globalSeen = {}  -- dedup antar semua phase
+            local knownNames = {}  -- id -> nama asli (dari Phase 1 & 2)
 
-            -- scan lokasi utama tempat emote biasa disimpan
+            -- ===== PHASE 1: HumanoidDescription Emotes (nama asli!) =====
+            emoteStatusLabel.Text = "🔍 Phase 1: Scanning HumanoidDescription emotes..."
+            task.wait()
+            local hdResults, hdSeen = scanHumanoidDescriptionEmotes()
+            for _, r in ipairs(hdResults) do
+                if not globalSeen[r.id] then
+                    globalSeen[r.id] = true
+                    knownNames[r.id] = r.name
+                    table.insert(allResults, r)
+                end
+            end
+
+            -- ===== PHASE 2: Animate Script =====
+            emoteStatusLabel.Text = "🔍 Phase 2: Scanning Animate script..."
+            task.wait()
+            local animResults, animSeen = scanAnimateScript()
+            for _, r in ipairs(animResults) do
+                if not globalSeen[r.id] then
+                    globalSeen[r.id] = true
+                    knownNames[r.id] = r.name
+                    table.insert(allResults, r)
+                end
+            end
+
+            -- ===== PHASE 3: Deep scan semua services =====
+            emoteStatusLabel.Text = "🔍 Phase 3: Deep scanning game services..."
+            task.wait()
             local scanTargets = {}
             pcall(function() table.insert(scanTargets, game:GetService("Workspace")) end)
             pcall(function() table.insert(scanTargets, game:GetService("ReplicatedStorage")) end)
@@ -5106,12 +5229,11 @@ local function setupScanEmoteTab()
                 if pg then table.insert(scanTargets, pg) end
             end)
 
-            local globalSeen = {}  -- dedup antar scan targets
             for idx, target in ipairs(scanTargets) do
                 pcall(function()
-                    emoteStatusLabel.Text = "🔍 Scanning " .. target.Name .. "... (" .. idx .. "/" .. #scanTargets .. ")"
+                    emoteStatusLabel.Text = "🔍 Deep scan: " .. target.Name .. " (" .. idx .. "/" .. #scanTargets .. ")"
                 end)
-                local partial = scanDescendants(target)
+                local partial = scanDescendants(target, knownNames)
                 for _, r in ipairs(partial) do
                     if not globalSeen[r.id] then
                         globalSeen[r.id] = true
